@@ -9,5 +9,11 @@
 
 int main(int argc, char *argv[])
 {
+
+    FILE *fd;
+    fd = fopen(argv[2], "w");
+
+    fclose(fd);
+
     return 0;
 }
