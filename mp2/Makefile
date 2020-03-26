@@ -14,5 +14,8 @@ vec_router: vec_router.cpp
 ls_router: ls_router.cpp
 	@${CC} ${CC_ARGS} -o ls_router ls_router.cpp
 
+manager_send: manager_send.c
+	gcc -o manager_send manager_send.c
+
 clean:
-	@rm -rf vec_router ls_router ls_router.dSYM vec_router.dSYM
+	@rm -rf vec_router ls_router ls_router.dSYM vec_router.dSYM manager_send

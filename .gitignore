@@ -1,1 +1,4 @@
 *.dSYM
+vec_router
+ls_router
+manager_send
