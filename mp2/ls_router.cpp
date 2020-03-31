@@ -1,9 +1,10 @@
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
 
 #include "monitor_neighbors.cpp"
 
+void updateCost(uint16_t nodeID, uint32_t cost);
 void listenForNeighbors();
 void *announceToNeighbors(void *unusedParam);
 
@@ -16,6 +17,11 @@ struct timeval globalLastHeartbeat[256];
 int globalSocketUDP;
 //pre-filled for sending to 10.1.1.0 - 255, port 7777
 struct sockaddr_in globalNodeAddrs[256];
+
+// Indices of nodes with active links
+bool connections[256];
+// Costs for each node
+unsigned int costs[256];
 
 int main(int argc, char **argv)
 {
@@ -41,7 +47,40 @@ int main(int argc, char **argv)
         inet_pton(AF_INET, tempaddr, &globalNodeAddrs[i].sin_addr);
     }
 
-    //TODO: read and parse initial costs file. default to cost 1 if no entry for a node. file may be empty.
+    // read and parse initial costs file. default to cost 1 if no entry for a node. file may be empty.
+    FILE *fp;
+    int buffLen = 50;
+    char buff[buffLen];
+    char *costPtr;
+    int nodeID;
+
+    fp = fopen(argv[2], "r");
+    if (fp == NULL)
+    {
+        perror("Invalid initial costs file");
+        return -1;
+    }
+
+    while (fgets(buff, buffLen, fp))
+    {
+        costPtr = strchr(buff, ' ');
+        *costPtr = '\0';
+        costPtr++;
+
+        updateCost(atoi(buff), atoi(costPtr));
+    }
+    // fill in rest of the costs
+    for (int i = 0; i < 256; ++i)
+    {
+        if (costs[i] == 0)
+        {
+            costs[i] = 1;
+        }
+    }
+    costs[globalMyID] = 0; // own node cost is the same
+    fclose(fp);
+
+    // -------------------------------------------------- //
 
     //socket() and bind() our socket. We will do all sendto()ing and recvfrom()ing on this one.
     if ((globalSocketUDP = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
