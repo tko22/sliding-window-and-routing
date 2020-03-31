@@ -11,6 +11,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define LOG_LINE_LENGTH 100
+
 extern int globalMyID;
 //last time you heard from each node. TODO: you will want to monitor this
 //in order to realize when a neighbor has gotten cut off from you.
@@ -37,6 +39,38 @@ void writeToLog(char *logLine)
     fwrite(logLine, 1, strlen(logLine), fp);
     fflush(fp);
     fclose(fp);
+}
+
+void writeSendLog(int dest, int nexthop, char *message)
+{
+    char logLine[LOG_LINE_LENGTH];
+    memset(logLine, '\0', LOG_LINE_LENGTH);
+    sprintf(logLine, "sending packet dest %d nexthop %d message %s\n", dest, nexthop, message);
+    writeToLog(logLine);
+}
+
+void writeForwardLog(int dest, int nexthop, char *message)
+{
+    char logLine[LOG_LINE_LENGTH];
+    memset(logLine, '\0', LOG_LINE_LENGTH);
+    sprintf(logLine, "forward packet dest %d nexthop %d message %s\n", dest, nexthop, message);
+    writeToLog(logLine);
+}
+
+void writeReceiveLog(char *message)
+{
+    char logLine[LOG_LINE_LENGTH];
+    memset(logLine, '\0', LOG_LINE_LENGTH);
+    sprintf(logLine, "receive packet message %s\n", message);
+    writeToLog(logLine);
+}
+
+void writeReceiveLog(int dest)
+{
+    char logLine[LOG_LINE_LENGTH];
+    memset(logLine, '\0', LOG_LINE_LENGTH);
+    sprintf(logLine, "unreachable dest %d\n", dest);
+    writeToLog(logLine);
 }
 
 void updateCost(uint16_t nodeID, uint32_t cost)
