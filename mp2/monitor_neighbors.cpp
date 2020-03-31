@@ -26,18 +26,39 @@ extern bool connections[256];
 // Costs for each node
 extern unsigned int costs[256];
 
-void updateCost(uint16_t nodeID, uint32_t cost) {
-    if (nodeID >= 0 && nodeID < 256) {
+// log path for node
+extern char *theLogFile;
+
+// write to log function
+// you need to provide buffer
+void writeToLog(char *logLine)
+{
+    FILE *fp = fopen(theLogFile, "a");
+    fwrite(logLine, 1, strlen(logLine), fp);
+    fflush(fp);
+    fclose(fp);
+}
+
+void updateCost(uint16_t nodeID, uint32_t cost)
+{
+    if (nodeID >= 0 && nodeID < 256)
+    {
         costs[nodeID] = cost;
-    } else {
+    }
+    else
+    {
         fprintf(stderr, "Invalid Node ID: %d", nodeID);
     }
 }
 
-void updateConnection(int nodeID, bool connect) {
-    if (nodeID >= 0 && nodeID < 256) {
+void updateConnection(int nodeID, bool connect)
+{
+    if (nodeID >= 0 && nodeID < 256)
+    {
         connections[nodeID] = connect;
-    } else {
+    }
+    else
+    {
         fprintf(stderr, "Invalid Node ID: %d", nodeID);
     }
 }
@@ -45,35 +66,41 @@ void updateConnection(int nodeID, bool connect) {
 //Yes, this is terrible. It's also terrible that, in Linux, a socket
 //can't receive broadcast packets unless it's bound to INADDR_ANY,
 //which we can't do in this assignment.
-void hackyBroadcast(const char *buf, int length) {
+void hackyBroadcast(const char *buf, int length)
+{
     int i;
     for (i = 0; i < 256; i++)
-        if (i != globalMyID)  //(although with a real broadcast you would also get the packet yourself)
+        if (i != globalMyID) //(although with a real broadcast you would also get the packet yourself)
             sendto(globalSocketUDP, buf, length, 0,
                    (struct sockaddr *)&globalNodeAddrs[i], sizeof(globalNodeAddrs[i]));
 }
 
-void *announceToNeighbors(void *unusedParam) {
+void *announceToNeighbors(void *unusedParam)
+{
     struct timespec sleepFor;
     sleepFor.tv_sec = 0;
-    sleepFor.tv_nsec = 300 * 1000 * 1000;  //300 ms
-    while (1) {
+    sleepFor.tv_nsec = 300 * 1000 * 1000; //300 ms
+    while (1)
+    {
         hackyBroadcast("HEREIAM", 7);
         nanosleep(&sleepFor, 0);
     }
 }
 
-void listenForNeighbors() {
+void listenForNeighbors()
+{
     char fromAddr[100];
     struct sockaddr_in theirAddr;
     socklen_t theirAddrLen;
     char recvBuf[1000];
 
     int bytesRecvd;
-    while (1) {
+    while (1)
+    {
         theirAddrLen = sizeof(theirAddr);
         if ((bytesRecvd = recvfrom(globalSocketUDP, recvBuf, 1000, 0,
-                                   (struct sockaddr *)&theirAddr, &theirAddrLen)) == -1) {
+                                   (struct sockaddr *)&theirAddr, &theirAddrLen)) == -1)
+        {
             perror("connectivity listener: recvfrom failed");
             exit(1);
         }
@@ -81,7 +108,8 @@ void listenForNeighbors() {
         inet_ntop(AF_INET, &theirAddr.sin_addr, fromAddr, 100);
 
         short int heardFrom = -1;
-        if (strstr(fromAddr, "10.1.1.")) {
+        if (strstr(fromAddr, "10.1.1."))
+        {
             heardFrom = atoi(
                 strchr(strchr(strchr(fromAddr, '.') + 1, '.') + 1, '.') + 1);
 
@@ -94,11 +122,13 @@ void listenForNeighbors() {
 
         //Is it a packet from the manager? (see mp2 specification for more details)
         //send format: 'send'<4 ASCII bytes>, destID<net order 2 byte signed>, <some ASCII message>
-        if (!strncmp(recvBuf, "send", 4)) {
+        if (!strncmp(recvBuf, "send", 4))
+        {
             //TODO send the requested message to the requested destination node
         }
         //'cost'<4 ASCII bytes>, destID<net order 2 byte signed> newCost<net order 4 byte signed>
-        else if (!strncmp(recvBuf, "cost", 4)) {
+        else if (!strncmp(recvBuf, "cost", 4))
+        {
             //TODO record the cost change (remember, the link might currently be down! in that case,
             //this is the new cost you should treat it as having once it comes back up.)
 
