@@ -208,3 +208,46 @@ Group Status: Group of 2
 ===================== End =====================
 
 
+=============== Auto-grader Test ===============
+Code Pull Time: 2020-03-30 18:00:41.923758
+Test Commit ID: bea96af1599e053b50874dc16605afdc420248ad
+Group Status: Group of 2
+----------------- Test Results ----------------
+-100	Compile: Failed.
+Compilation failed with:
+In file included from ls_router.cpp:5:0:
+monitor_neighbors.cpp: In function ‘void listenForNeighbors()’:
+monitor_neighbors.cpp:77:4: error: ‘gettimeofday’ was not declared in this scope
+    gettimeofday(&globalLastHeartbeat[heardFrom], 0);
+    ^~~~~~~~~~~~
+monitor_neighbors.cpp:82:33: error: invalid conversion from ‘unsigned char*’ to ‘const char*’ [-fpermissive]
+   if(!strncmp(recvBuf, "send", 4))
+                                 ^
+In file included from monitor_neighbors.cpp:3:0,
+                 from ls_router.cpp:5:
+/usr/include/string.h:139:12: note:   initializing argument 1 of ‘int strncmp(const char*, const char*, size_t)’
+ extern int strncmp (const char *__s1, const char *__s2, size_t __n)
+            ^~~~~~~
+In file included from ls_router.cpp:5:0:
+monitor_neighbors.cpp:88:38: error: invalid conversion from ‘unsigned char*’ to ‘const char*’ [-fpermissive]
+   else if(!strncmp(recvBuf, "cost", 4))
+                                      ^
+In file included from monitor_neighbors.cpp:3:0,
+                 from ls_router.cpp:5:
+/usr/include/string.h:139:12: note:   initializing argument 1 of ‘int strncmp(const char*, const char*, size_t)’
+ extern int strncmp (const char *__s1, const char *__s2, size_t __n)
+            ^~~~~~~
+ls_router.cpp: In function ‘int main(int, char**)’:
+ls_router.cpp:34:9: error: ‘gettimeofday’ was not declared in this scope
+         gettimeofday(&globalLastHeartbeat[i], 0);
+         ^~~~~~~~~~~~
+Makefile:15: recipe for target 'ls_router' failed
+make: *** [ls_router] Error 1
+ 
+
+-0	Late Penalty: Last commit happens before due.
+-------------------- Score --------------------
+0/100
+===================== End =====================
+
+
