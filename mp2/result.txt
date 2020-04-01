@@ -251,3 +251,25 @@ make: *** [ls_router] Error 1
 ===================== End =====================
 
 
+=============== Auto-grader Test ===============
+Code Pull Time: 2020-03-30 19:47:43.893846
+Test Commit ID: 554e91b01abfb7db98ede9d0e94201445cbc4396
+Group Status: Group of 2
+----------------- Test Results ----------------
+-100	Compile: Failed.
+Compilation failed with:
+/tmp/ccBBHqdK.o: In function `writeToLog(char*)':
+/home/grader/cur/monitor_neighbors.cpp:38: undefined reference to `theLogFile'
+/tmp/ccBBHqdK.o: In function `main':
+/home/grader/cur/vec_router.cpp:97: undefined reference to `pthread_create'
+collect2: error: ld returned 1 exit status
+Makefile:12: recipe for target 'vec_router' failed
+make: *** [vec_router] Error 1
+ 
+
+-0	Late Penalty: Last commit happens before due.
+-------------------- Score --------------------
+0/100
+===================== End =====================
+
+
