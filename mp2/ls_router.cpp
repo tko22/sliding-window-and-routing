@@ -3,10 +3,18 @@
 #include <stdlib.h>
 
 #include "monitor_neighbors.cpp"
+#include "ls_utils.cpp"
 
 void updateCost(uint16_t nodeID, uint32_t cost);
 void listenForNeighbors();
 void *announceToNeighbors(void *unusedParam);
+
+typedef struct
+{
+    int dest;
+    int cost;
+    int nexthop;
+} Entry;
 
 int globalMyID = 0;
 //last time you heard from each node. TODO: you will want to monitor this
@@ -23,6 +31,12 @@ bool connections[256];
 // Costs for each node
 unsigned int costs[256];
 
+// adjacent matrix for graph to use with Dijkstra’s
+int adjMatrix[256][256];
+
+char *theLogFile;
+
+Entry confirmedTable[256];
 
 void lslistenForNeighbors()
 {
@@ -53,6 +67,10 @@ void lslistenForNeighbors()
             //TODO: this node can consider heardFrom to be directly connected to it; do any such logic now.
             updateConnection(heardFrom, true);
 
+            // update adjacent matrix - undirected graph
+            adjMatrix[globalMyID][heardFrom] = costs[heardFrom];
+            adjMatrix[heardFrom][globalMyID] = costs[heardFrom];
+
             //record that we heard from heardFrom just now.
             gettimeofday(&globalLastHeartbeat[heardFrom], 0);
         }
@@ -61,12 +79,12 @@ void lslistenForNeighbors()
         //send format: 'send'<4 ASCII bytes>, destID<net order 2 byte signed>, <some ASCII message>
         if (!strncmp(recvBuf, "send", 4))
         {
-            //TODO send the requested message to the requested destination node
+            //TODO: send the requested message to the requested destination node
         }
         //'cost'<4 ASCII bytes>, destID<net order 2 byte signed> newCost<net order 4 byte signed>
         else if (!strncmp(recvBuf, "cost", 4))
         {
-            //TODO record the cost change (remember, the link might currently be down! in that case,
+            //TODO: record the cost change (remember, the link might currently be down! in that case,
             //this is the new cost you should treat it as having once it comes back up.)
 
             updateCost(ntohs(recvBuf[4]), ntohl(recvBuf[6]));
@@ -75,10 +93,22 @@ void lslistenForNeighbors()
         //TODO now check for the various types of packets you use in your own protocol
         //else if(!strncmp(recvBuf, "your other message types", ))
         // ...
+
+        // 'update'<6 bytes> node 1<net order 2 byte signed> node 2<netorder 2byte signed> cost<net order 4 byte signed>
+        else if (!strncmp(recvBuf, "update", 6))
+        {
+            int node1 = (int)ntohs(recvBuf[6]);
+            int node2 = (int)ntohs(recvBuf[8]);
+            adjMatrix[node1][node2] = ntohl(recvBuf[10]);
+            adjMatrix[node2][node1] = ntohl(recvBuf[10]);
+            // TODO: do something with fwdTable
+        }
     }
     //(should never reach here)
     close(globalSocketUDP);
 }
+
+/** --------------- MAIN -------------------- **/
 
 int main(int argc, char **argv)
 {
@@ -88,7 +118,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    char *theLogFile = argv[3];
+    theLogFile = argv[3];
 
     //initialization: get this process's node ID, record what time it is,
     //and set up our sockaddr_in's for sending to the other nodes.
@@ -147,6 +177,12 @@ int main(int argc, char **argv)
         perror("socket");
         exit(1);
     }
+
+    int enable = 1;
+    // set reuseaddr
+    if (setsockopt(globalSocketUDP, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+        perror("setsockopt(SO_REUSEADDR) failed");
+
     char myAddr[100];
     struct sockaddr_in bindAddr;
     sprintf(myAddr, "10.1.1.%d", globalMyID);
@@ -163,10 +199,8 @@ int main(int argc, char **argv)
 
     //start threads... feel free to add your own, and to remove the provided ones.
     pthread_t announcerThread;
-    pthread_create(&announcerThread, 0, announceToNeighbors, (void *)0);
+    pthread_create(&announcerThread, 0, announceToNeighbors, (void *)0); // ping everyone that you can ping... your neighbors
 
     //good luck, have fun!
     lslistenForNeighbors();
 }
-
-
