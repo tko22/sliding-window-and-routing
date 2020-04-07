@@ -28,12 +28,9 @@ extern bool connections[256];
 // Costs for each node
 extern unsigned int costs[256];
 
-// log path for node
-extern char *theLogFile;
-
 // write to log function
 // you need to provide buffer
-void writeToLog(char *logLine)
+void writeToLog(char *theLogFile, char *logLine)
 {
     FILE *fp = fopen(theLogFile, "a");
     fwrite(logLine, 1, strlen(logLine), fp);
@@ -41,36 +38,36 @@ void writeToLog(char *logLine)
     fclose(fp);
 }
 
-void writeSendLog(int dest, int nexthop, char *message)
+void writeSendLog(char *theLogFile, int dest, int nexthop, char *message)
 {
     char logLine[LOG_LINE_LENGTH];
     memset(logLine, '\0', LOG_LINE_LENGTH);
     sprintf(logLine, "sending packet dest %d nexthop %d message %s\n", dest, nexthop, message);
-    writeToLog(logLine);
+    writeToLog(theLogFile,logLine);
 }
 
-void writeForwardLog(int dest, int nexthop, char *message)
+void writeForwardLog(char *theLogFile, int dest, int nexthop, char *message)
 {
     char logLine[LOG_LINE_LENGTH];
     memset(logLine, '\0', LOG_LINE_LENGTH);
     sprintf(logLine, "forward packet dest %d nexthop %d message %s\n", dest, nexthop, message);
-    writeToLog(logLine);
+    writeToLog(theLogFile, logLine);
 }
 
-void writeReceiveLog(char *message)
+void writeReceiveLog(char *theLogFile, char *message)
 {
     char logLine[LOG_LINE_LENGTH];
     memset(logLine, '\0', LOG_LINE_LENGTH);
     sprintf(logLine, "receive packet message %s\n", message);
-    writeToLog(logLine);
+    writeToLog(theLogFile, logLine);
 }
 
-void writeReceiveLog(int dest)
+void writeUnreachableLog(char *theLogFile, int dest)
 {
     char logLine[LOG_LINE_LENGTH];
     memset(logLine, '\0', LOG_LINE_LENGTH);
     sprintf(logLine, "unreachable dest %d\n", dest);
-    writeToLog(logLine);
+    writeToLog(theLogFile, logLine);
 }
 
 void updateCost(uint16_t nodeID, uint32_t cost)

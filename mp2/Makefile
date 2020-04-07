@@ -1,5 +1,5 @@
 CC=/usr/bin/g++
-CC_OPTS=-g3 -std=c++11
+CC_OPTS=-g3 -std=c++11 -pthread
 CC_LIBS=
 CC_DEFINES=
 CC_INCLUDES=

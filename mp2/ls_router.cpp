@@ -23,6 +23,63 @@ bool connections[256];
 // Costs for each node
 unsigned int costs[256];
 
+
+void lslistenForNeighbors()
+{
+    char fromAddr[100];
+    struct sockaddr_in theirAddr;
+    socklen_t theirAddrLen;
+    char recvBuf[1000];
+
+    int bytesRecvd;
+    while (1)
+    {
+        theirAddrLen = sizeof(theirAddr);
+        if ((bytesRecvd = recvfrom(globalSocketUDP, recvBuf, 1000, 0,
+                                   (struct sockaddr *)&theirAddr, &theirAddrLen)) == -1)
+        {
+            perror("connectivity listener: recvfrom failed");
+            exit(1);
+        }
+
+        inet_ntop(AF_INET, &theirAddr.sin_addr, fromAddr, 100);
+
+        short int heardFrom = -1;
+        if (strstr(fromAddr, "10.1.1."))
+        {
+            heardFrom = atoi(
+                strchr(strchr(strchr(fromAddr, '.') + 1, '.') + 1, '.') + 1);
+
+            //TODO: this node can consider heardFrom to be directly connected to it; do any such logic now.
+            updateConnection(heardFrom, true);
+
+            //record that we heard from heardFrom just now.
+            gettimeofday(&globalLastHeartbeat[heardFrom], 0);
+        }
+
+        //Is it a packet from the manager? (see mp2 specification for more details)
+        //send format: 'send'<4 ASCII bytes>, destID<net order 2 byte signed>, <some ASCII message>
+        if (!strncmp(recvBuf, "send", 4))
+        {
+            //TODO send the requested message to the requested destination node
+        }
+        //'cost'<4 ASCII bytes>, destID<net order 2 byte signed> newCost<net order 4 byte signed>
+        else if (!strncmp(recvBuf, "cost", 4))
+        {
+            //TODO record the cost change (remember, the link might currently be down! in that case,
+            //this is the new cost you should treat it as having once it comes back up.)
+
+            updateCost(ntohs(recvBuf[4]), ntohl(recvBuf[6]));
+        }
+
+        //TODO now check for the various types of packets you use in your own protocol
+        //else if(!strncmp(recvBuf, "your other message types", ))
+        // ...
+    }
+    //(should never reach here)
+    close(globalSocketUDP);
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 4)
@@ -31,7 +88,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    theLogFile = argv[3];
+    char *theLogFile = argv[3];
 
     //initialization: get this process's node ID, record what time it is,
     //and set up our sockaddr_in's for sending to the other nodes.
@@ -112,58 +169,4 @@ int main(int argc, char **argv)
     lslistenForNeighbors();
 }
 
-void lslistenForNeighbors()
-{
-    char fromAddr[100];
-    struct sockaddr_in theirAddr;
-    socklen_t theirAddrLen;
-    char recvBuf[1000];
 
-    int bytesRecvd;
-    while (1)
-    {
-        theirAddrLen = sizeof(theirAddr);
-        if ((bytesRecvd = recvfrom(globalSocketUDP, recvBuf, 1000, 0,
-                                   (struct sockaddr *)&theirAddr, &theirAddrLen)) == -1)
-        {
-            perror("connectivity listener: recvfrom failed");
-            exit(1);
-        }
-
-        inet_ntop(AF_INET, &theirAddr.sin_addr, fromAddr, 100);
-
-        short int heardFrom = -1;
-        if (strstr(fromAddr, "10.1.1."))
-        {
-            heardFrom = atoi(
-                strchr(strchr(strchr(fromAddr, '.') + 1, '.') + 1, '.') + 1);
-
-            //TODO: this node can consider heardFrom to be directly connected to it; do any such logic now.
-            updateConnection(heardFrom, true);
-
-            //record that we heard from heardFrom just now.
-            gettimeofday(&globalLastHeartbeat[heardFrom], 0);
-        }
-
-        //Is it a packet from the manager? (see mp2 specification for more details)
-        //send format: 'send'<4 ASCII bytes>, destID<net order 2 byte signed>, <some ASCII message>
-        if (!strncmp(recvBuf, "send", 4))
-        {
-            //TODO send the requested message to the requested destination node
-        }
-        //'cost'<4 ASCII bytes>, destID<net order 2 byte signed> newCost<net order 4 byte signed>
-        else if (!strncmp(recvBuf, "cost", 4))
-        {
-            //TODO record the cost change (remember, the link might currently be down! in that case,
-            //this is the new cost you should treat it as having once it comes back up.)
-
-            updateCost(ntohs(recvBuf[4]), ntohl(recvBuf[6]));
-        }
-
-        //TODO now check for the various types of packets you use in your own protocol
-        //else if(!strncmp(recvBuf, "your other message types", ))
-        // ...
-    }
-    //(should never reach here)
-    close(globalSocketUDP);
-}
