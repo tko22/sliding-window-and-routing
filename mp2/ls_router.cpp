@@ -80,6 +80,8 @@ void lslistenForNeighbors()
         if (!strncmp(recvBuf, "send", 4))
         {
             //TODO: send the requested message to the requested destination node
+            // write send log message
+            // send forward packet
         }
         //'cost'<4 ASCII bytes>, destID<net order 2 byte signed> newCost<net order 4 byte signed>
         else if (!strncmp(recvBuf, "cost", 4))
@@ -95,13 +97,41 @@ void lslistenForNeighbors()
         // ...
 
         // 'update'<6 bytes> node 1<net order 2 byte signed> node 2<netorder 2byte signed> cost<net order 4 byte signed>
+        // When routers propagate a new link (or send their own neighbors out)
         else if (!strncmp(recvBuf, "update", 6))
         {
             int node1 = (int)ntohs(recvBuf[6]);
             int node2 = (int)ntohs(recvBuf[8]);
             adjMatrix[node1][node2] = ntohl(recvBuf[10]);
             adjMatrix[node2][node1] = ntohl(recvBuf[10]);
+
+            short int hNode1 = htons(node1);
+            short int hNode2 = htons(node2);
+
+            // forward it to neighbors else besides heardFrom
+            char sendBuf[6 + sizeof(short int) + sizeof(short int) + sizeof(int)];
+            strcpy(sendBuf, "cost");
+            memcpy(sendBuf + 6, &hNode1, sizeof(short int));
+            memcpy(sendBuf + 6 + sizeof(short int), &hNode2, sizeof(short int));
+            memcpy(sendBuf + 6 + 2 * sizeof(short int), &recvBuf[10], sizeof(int)); // hopefully this works? // TODO:
+            sendPacketToNeighbor(heardFrom, sendBuf);
+
+            // use threads if too slow
+            // pthread_t updateThread;
+            // pthread_create(&updateThread, 0, sendPacketToNeighbor, packetArgs);
+
             // TODO: do something with fwdTable
+        }
+
+        // got a forwarding packet
+        else if (!strncmp(recvBuf, "forward", 7))
+        {
+            // TODO:
+            // decide whether to forward or not
+            // if dest is itself, write to log, receive
+            // else
+            // look at forward table and send
+            // if send is not successful, write to log, unreachable (for debugging maybe print it out to see whether you did it wrong or not)
         }
     }
     //(should never reach here)
