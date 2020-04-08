@@ -9,8 +9,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-int main(int argc, char** argv) {
-    if (argc != 5 || (strcmp(argv[2], "cost") && strcmp(argv[2], "send"))) {
+int main(int argc, char **argv)
+{
+    if (argc != 5 || (strcmp(argv[2], "cost") && strcmp(argv[2], "send")))
+    {
         fprintf(stderr, "Usage: %s destnode command [args]\n'command' must be 'send' or 'cost'.\n\n", argv[0]);
         if (argc > 2 && !strcmp(argv[2], "cost") && argc != 5)
             fprintf(stderr, "Usage: %s destnode cost destID newCost\n\n", argv[0]);
@@ -36,7 +38,7 @@ int main(int argc, char** argv) {
     srcAddr.sin_family = AF_INET;
     srcAddr.sin_port = htons(8999);
     inet_pton(AF_INET, "10.0.0.10", &srcAddr.sin_addr);
-    if (bind(senderSocket, (struct sockaddr*)&srcAddr, sizeof(srcAddr)) < 0)
+    if (bind(senderSocket, (struct sockaddr *)&srcAddr, sizeof(srcAddr)) < 0)
         perror("bind()");
 
     struct sockaddr_in destAddr;
@@ -47,7 +49,8 @@ int main(int argc, char** argv) {
     destAddr.sin_port = htons(7777);
     inet_pton(AF_INET, tempaddr, &destAddr.sin_addr);
 
-    if (!strcmp(argv[2], "cost")) {
+    if (!strcmp(argv[2], "cost"))
+    {
         int no_newCost = htonl(atoi(argv[4]));
 
         char sendBuf[4 + sizeof(short int) + sizeof(int)];
@@ -57,17 +60,19 @@ int main(int argc, char** argv) {
         memcpy(sendBuf + 4 + sizeof(short int), &no_newCost, sizeof(int));
 
         if (sendto(senderSocket, sendBuf, 4 + sizeof(short int) + sizeof(int), 0,
-                   (struct sockaddr*)&destAddr, sizeof(destAddr)) < 0)
+                   (struct sockaddr *)&destAddr, sizeof(destAddr)) < 0)
             perror("sendto()");
-    } else {
+    }
+    else
+    {
         int msgLen = 4 + sizeof(short int) + strlen(argv[4]);
-        char* sendBuf = malloc(msgLen);
+        char *sendBuf = malloc(msgLen);
 
         strcpy(sendBuf, "send");
         memcpy(sendBuf + 4, &no_destID, sizeof(short int));
         memcpy(sendBuf + 4 + sizeof(short int), argv[4], strlen(argv[4]));
 
-        if (sendto(senderSocket, sendBuf, msgLen, 0, (struct sockaddr*)&destAddr, sizeof(destAddr)) < 0)
+        if (sendto(senderSocket, sendBuf, msgLen, 0, (struct sockaddr *)&destAddr, sizeof(destAddr)) < 0)
             perror("sendto()");
         free(sendBuf);
     }

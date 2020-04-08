@@ -1,6 +1,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <map>
 
 #include "monitor_neighbors.cpp"
 #include "ls_utils.cpp"
@@ -8,13 +9,6 @@
 void updateCost(uint16_t nodeID, uint32_t cost);
 void listenForNeighbors();
 void *announceToNeighbors(void *unusedParam);
-
-typedef struct
-{
-    int dest;
-    int cost;
-    int nexthop;
-} Entry;
 
 int globalMyID = 0;
 //last time you heard from each node. TODO: you will want to monitor this
@@ -31,12 +25,17 @@ bool connections[256];
 // Costs for each node
 unsigned int costs[256];
 
-// adjacent matrix for graph to use with Dijkstra’s
-int adjMatrix[256][256];
+// sequence number for flooding
+int sequenceNum = 0;
 
+// adjacent matrix for graph to use with Dijkstra’s
+int adjMatrix[256][256] = {{0}}; // initialize all elements to zero
+
+// log file name
 char *theLogFile;
 
-Entry confirmedTable[256];
+std::map<int, Entry> confirmedMap;
+Entry tentativeTable[256];
 
 void lslistenForNeighbors()
 {
@@ -64,12 +63,20 @@ void lslistenForNeighbors()
             heardFrom = atoi(
                 strchr(strchr(strchr(fromAddr, '.') + 1, '.') + 1, '.') + 1);
 
-            //TODO: this node can consider heardFrom to be directly connected to it; do any such logic now.
-            updateConnection(heardFrom, true);
+            // if new connection
+            if (connections[heardFrom] == false)
+            {
+                //this node can consider heardFrom to be directly connected to it; do any such logic now.
+                updateConnection(heardFrom, true);
 
-            // update adjacent matrix - undirected graph
-            adjMatrix[globalMyID][heardFrom] = costs[heardFrom];
-            adjMatrix[heardFrom][globalMyID] = costs[heardFrom];
+                // update adjacent matrix - undirected graph
+                adjMatrix[globalMyID][heardFrom] = costs[heardFrom];
+                adjMatrix[heardFrom][globalMyID] = costs[heardFrom];
+
+                // flood to all neighbors - including the neighbor you just got a message from
+                sequenceNum++; // increment sequence Number
+                floodLSP(connections, sequenceNum);
+            }
 
             //record that we heard from heardFrom just now.
             gettimeofday(&globalLastHeartbeat[heardFrom], 0);
@@ -79,9 +86,39 @@ void lslistenForNeighbors()
         //send format: 'send'<4 ASCII bytes>, destID<net order 2 byte signed>, <some ASCII message>
         if (!strncmp(recvBuf, "send", 4))
         {
-            //TODO: send the requested message to the requested destination node
-            // write send log message
-            // send forward packet
+            //send the requested message to the requested destination node
+            int dest = (int)ntohs(recvBuf[7]);
+            // copy message over
+            // TODO: make sure length is correct
+            char message[bytesRecvd - 6 + 1]; // 100 is max size for message
+            int i;
+            for (i = 6; i < bytesRecvd; i++)
+            {
+                message[i - 6] = recvBuf[i];
+            }
+
+            // decide whether to send
+            if (dest == globalMyID)
+            {
+                // if dest is itself, write to log, receive
+                writeReceiveLog(theLogFile, message);
+            }
+            else
+            {
+                // check if you can reach node
+                if (confirmedMap.find(dest) == confirmedMap.end())
+                {
+                    // key doesnt exist - can't reach
+                    writeUnreachableLog(theLogFile, dest);
+                }
+                else
+                {
+                    int nextHop = confirmedMap[dest].nexthop;
+                    // write send log message
+                    writeSendLog(theLogFile, dest, nextHop, message);
+                    sendForwardPacket(nextHop, dest, message);
+                }
+            }
         }
         //'cost'<4 ASCII bytes>, destID<net order 2 byte signed> newCost<net order 4 byte signed>
         else if (!strncmp(recvBuf, "cost", 4))
@@ -92,46 +129,87 @@ void lslistenForNeighbors()
             updateCost(ntohs(recvBuf[4]), ntohl(recvBuf[6]));
         }
 
-        //TODO now check for the various types of packets you use in your own protocol
-        //else if(!strncmp(recvBuf, "your other message types", ))
-        // ...
-
-        // 'update'<6 bytes> node 1<net order 2 byte signed> node 2<netorder 2byte signed> cost<net order 4 byte signed>
+        // 'ls'<2 ascii bytes> node 1<net order 2 byte signed> node 2<netorder 2byte signed> cost<net order 4 byte signed> seq_num<net order 4 byte signed> ttl<netorder 4 byte signed>
         // When routers propagate a new link (or send their own neighbors out)
-        else if (!strncmp(recvBuf, "update", 6))
+        // link state packet
+        else if (!strncmp(recvBuf, "ls", 2))
         {
-            int node1 = (int)ntohs(recvBuf[6]);
-            int node2 = (int)ntohs(recvBuf[8]);
-            adjMatrix[node1][node2] = ntohl(recvBuf[10]);
-            adjMatrix[node2][node1] = ntohl(recvBuf[10]);
+            int node1 = (int)ntohs(recvBuf[2]);
+            int node2 = (int)ntohs(recvBuf[4]);
+            int seqNum = ntohl(recvBuf[10]);
+            int ttl = ntohl(recvBuf[14]);
+            ttl = ttl - 1; // subtract ttl
 
-            short int hNode1 = htons(node1);
-            short int hNode2 = htons(node2);
+            // if haven't seen and ttl is still ok
+            // TODO: check sequence number too, need to keep track it first
+            if (adjMatrix[node1][node2] == 0 && ttl > 0)
+            {
 
-            // forward it to neighbors else besides heardFrom
-            char sendBuf[6 + sizeof(short int) + sizeof(short int) + sizeof(int)];
-            strcpy(sendBuf, "cost");
-            memcpy(sendBuf + 6, &hNode1, sizeof(short int));
-            memcpy(sendBuf + 6 + sizeof(short int), &hNode2, sizeof(short int));
-            memcpy(sendBuf + 6 + 2 * sizeof(short int), &recvBuf[10], sizeof(int)); // hopefully this works? // TODO:
-            sendPacketToNeighbor(heardFrom, sendBuf);
+                adjMatrix[node1][node2] = ntohl(recvBuf[6]); // set costs
+                adjMatrix[node2][node1] = ntohl(recvBuf[6]); // set costs
 
-            // use threads if too slow
-            // pthread_t updateThread;
-            // pthread_create(&updateThread, 0, sendPacketToNeighbor, packetArgs);
+                // convert to netorder
+                short int hNode1 = htons(node1);
+                short int hNode2 = htons(node2);
+                ttl = htonl(ttl);
 
-            // TODO: do something with fwdTable
+                // forward it to neighbors else besides heardFrom
+                char sendBuf[2 + sizeof(short int) + sizeof(short int) + 3 * sizeof(int)];
+                strcpy(sendBuf, "ls");
+                memcpy(sendBuf + 2, &hNode1, sizeof(short int));
+                memcpy(sendBuf + 2 + sizeof(short int), &hNode2, sizeof(short int));
+                memcpy(sendBuf + 2 + 2 * sizeof(short int), &recvBuf[6], sizeof(int)); // hopefully this works (&recvBuf? // TODO:
+                memcpy(sendBuf + 2 + 2 * sizeof(short int) + sizeof(int), &recvBuf[10], sizeof(int));
+                memcpy(sendBuf + 2 + 2 * sizeof(short int) + 2 * sizeof(int), &ttl, sizeof(int));
+                sendPacketToNeighbor(heardFrom, sendBuf);
+
+                // use threads if too slow
+                // pthread_t updateThread;
+                // pthread_create(&updateThread, 0, sendPacketToNeighbor, packetArgs);
+
+                // TODO: do something with fwdTable
+            }
+            // don't flood if already seen
         }
 
         // got a forwarding packet
+        //forward format: 'forward'<7 ASCII bytes>, destID<net order 2 byte signed>, <some ASCII message>
         else if (!strncmp(recvBuf, "forward", 7))
         {
-            // TODO:
+            int dest = (int)ntohs(recvBuf[7]);
+            // copy message over
+            char message[bytesRecvd - 9 + 1]; // 100 is max size for message
+            int i;
+            for (i = 9; i < bytesRecvd; i++)
+            {
+                message[i - 9] = recvBuf[i];
+            }
+
             // decide whether to forward or not
-            // if dest is itself, write to log, receive
-            // else
-            // look at forward table and send
-            // if send is not successful, write to log, unreachable (for debugging maybe print it out to see whether you did it wrong or not)
+            if (dest == globalMyID)
+            {
+                // if dest is itself, write to log, receive
+                writeReceiveLog(theLogFile, message);
+            }
+            else
+            {
+
+                // need to forward
+                // look at forward table and send
+                // check if unreachable (for debugging maybe print it out to see whether you did it wrong or not)
+                if (confirmedMap.find(dest) == confirmedMap.end())
+                {
+                    // key doesnt exist - can't reach
+                    writeUnreachableLog(theLogFile, dest);
+                }
+                else
+                {
+                    int nextHop = confirmedMap[dest].nexthop;
+                    // write send log message
+                    writeForwardLog(theLogFile, dest, nextHop, message);
+                    sendForwardPacket(nextHop, dest, message);
+                }
+            }
         }
     }
     //(should never reach here)
