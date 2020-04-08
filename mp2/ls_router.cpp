@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <map>
+#include <vector>
 
 #include "monitor_neighbors.cpp"
 #include "ls_utils.cpp"
@@ -29,13 +30,13 @@ unsigned int costs[256];
 int sequenceNum = 0;
 
 // adjacent matrix for graph to use with Dijkstra’s
-int adjMatrix[256][256] = {{0}}; // initialize all elements to zero
+int adjMatrix[256][256] = {{0}}; // initialize all elements to zero, if nonzero, there is a connection
 
 // log file name
 char *theLogFile;
 
 std::map<int, Entry> confirmedMap;
-Entry tentativeTable[256];
+std::vector<Entry> tentativeTable;
 
 void lslistenForNeighbors()
 {

@@ -1,6 +1,8 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <vector>
+#include <map>
 
 //memset(ret, '\0', sizeof ret);
 
@@ -79,14 +81,54 @@ void sendForwardPacket(int nextHop, int dest, char *message)
            (struct sockaddr *)&globalNodeAddrs[nextHop], sizeof(globalNodeAddrs[nextHop]));
 }
 
-void dijkstras(std::map<int, Entry> &confirmedMap, Entry tentativeTable[256], bool connections[256], int adjMatrix[256][256])
+void dijkstras(std::map<int, Entry> &confirmedMap, bool connections[256], int adjMatrix[256][256], int costs[255])
 {
-    //TODO:
+    std::vector<Entry> tentativeTable;
+    std::vector<int> neighborList;
     // add all neighbors to tentative table with costs
+    int i;
+    for (i = 0; i < 256; i++)
+    {
+        if (connections[i] == true)
+        {
+            Entry e{i, costs[i], i}; // neighbor 23, cost 1 => {23,1,23}
+            tentativeTable.push_back(e);
+            neighborList.push_back(i); // add to neighborlist (list of nextHops)
+        }
+    }
+
+    // if there are no neighbors
+    if (tentativeTable.size() <= 0)
+    {
+        return;
+    }
 
     // pick lowest cost tentative neighbor
+    int lowest_cost = tentativeTable[0].cost;
+    int lowest_neighbor_idx = 0;
+
+    for (i = 1; i < tentativeTable.size(); i++)
+    {
+        if (tentativeTable[i].cost < lowest_cost)
+        {
+            lowest_cost = tentativeTable[i].cost;
+            lowest_neighbor_idx = i;
+        }
+    }
+
     // add it's neighbors
+    for (i = 0; i < 256; i++)
+    {
+        if (adjMatrix[lowest_neighbor_idx][i] > 0)
+        {
+            // i is a neighbor, nextHop is the lowest cost neighbor
+            Entry e{i, adjMatrix[lowest_neighbor_idx][i], lowest_neighbor_idx};
+        }
+    }
+
+    //TODO:
     // go through tentative table to update cost values (i think you need to run dikstras)
 
     // keep going until tentative table is empty
+    // for adding node A's neighbors in the loop, nextHop would be the node A's nextHop. so if node A had a next Hop of 3 then it's neighbors will have a nexthop of 3.
 }
