@@ -24,7 +24,7 @@ struct sockaddr_in globalNodeAddrs[256];
 // Indices of nodes with active links
 bool connections[256];
 // Costs for each node
-unsigned int costs[256];
+int costs[256];
 
 // sequence number for flooding
 int sequenceNum = 0; // TODO: figure out if this is the way to do it (floodLSP, cost)
@@ -322,6 +322,9 @@ int main(int argc, char **argv)
     int enable = 1;
     // set reuseaddr
     if (setsockopt(globalSocketUDP, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+        perror("setsockopt(SO_REUSEADDR) failed");
+    // set resuseport
+    if (setsockopt(globalSocketUDP, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(int)) < 0)
         perror("setsockopt(SO_REUSEADDR) failed");
 
     char myAddr[100];

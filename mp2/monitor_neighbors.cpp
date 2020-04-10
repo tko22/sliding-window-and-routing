@@ -26,7 +26,7 @@ extern struct sockaddr_in globalNodeAddrs[256];
 // Indices of nodes with active links
 extern bool connections[256];
 // Costs for each node
-extern unsigned int costs[256];
+extern int costs[256];
 
 // write to log function
 // you need to provide buffer

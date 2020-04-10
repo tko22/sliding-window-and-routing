@@ -1,0 +1,42 @@
+- Constructing the network topology:
+To set an initial topology, run 
+>>> perl make_topology.pl testtopo.txt
+"Testtopo.txt" is an example topology provided to you. This will set the connectivity between nodes. 
+If the above command doesn't work properly, you may want to check your network interface name and replace the "eth0" with your network interface's name in the make_topology.pl file.
+
+- Initial link cost files:
+To give them their initial costs, provide each with an
+initialcosts file (examples of these are provided as well. See the MP2 handout for more details on all
+file formats). You can also give them all an empty file if you want all links to default to cost 1.
+
+
+- The manager:
+To make the nodes send messages, or change link costs while the programs are running, use manager_send.
+>>> ./manager_send 2 send 5 "Hello World!"
+>>> ./manager_send 3 cost 1234
+
+
+- To bring links up and down while running:
+e.g. to bring the link between nodes 1 and 2 up: 
+>>> sudo iptables -I OUTPUT -s 10.1.1.1 -d 10.1.1.2 -j ACCEPT ; sudo iptables -I OUTPUT -s 10.1.1.2 -d 10.1.1.1 -j ACCEPT
+
+- To take that link down:
+>>> sudo iptables -D OUTPUT -s 10.1.1.1 -d 10.1.1.2 -j ACCEPT ; sudo iptables -D OUTPUT -s 10.1.1.2 -d 10.1.1.1 -j ACCEPT
+
+
+- Sample code for constructing log message strings:
+sprintf(logLine, "sending packet dest %d nexthop %d message %s\n", dest, nexthop, message);
+sprintf(logLine, "forward packet dest %d nexthop %d message %s\n", dest, nexthop, message);
+sprintf(logLine, "receive packet message %s\n", message);
+sprintf(logLine, "unreachable dest %d\n", dest);
+
+and then:
+
+fwrite(logLine, 1, strlen(logLine), theLogFile);
+fflush(theLogFile);
+
+If that's all you do to the log file, you will have the correct format. (Don't worry about closing it; 
+when your process gets killed, any output should be flushed + the file will be closed).
+
+./ls_router 5 ./testtopo_initial_link_cost_files/testinitcosts5 log5.txt
+

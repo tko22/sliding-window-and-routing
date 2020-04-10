@@ -21,7 +21,7 @@ struct sockaddr_in globalNodeAddrs[256];
 // Indices of nodes with active links
 bool connections[256];
 // Costs for each node
-unsigned int costs[256];
+int costs[256];
 
 int main(int argc, char **argv) {
     if (argc != 4) {
