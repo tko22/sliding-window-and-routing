@@ -27,7 +27,7 @@ bool connections[256];
 unsigned int costs[256];
 
 // sequence number for flooding
-int sequenceNum = 0;
+int sequenceNum = 0; // TODO: figure out if this is the way to do it (floodLSP, cost)
 
 // adjacent matrix for graph to use with Dijkstra’s
 int adjMatrix[256][256] = {{0}}; // initialize all elements to zero, if nonzero, there is a connection
@@ -121,18 +121,49 @@ void lslistenForNeighbors()
                 }
             }
         }
+
+        /* ---------- COST CHANGE ------------ */
         //'cost'<4 ASCII bytes>, destID<net order 2 byte signed> newCost<net order 4 byte signed>
         else if (!strncmp(recvBuf, "cost", 4))
         {
-            //TODO: record the cost change (remember, the link might currently be down! in that case,
+            //record the cost change (remember, the link might currently be down! in that case,
             //this is the new cost you should treat it as having once it comes back up.)
-
             updateCost(ntohs(recvBuf[4]), ntohl(recvBuf[6]));
+
+            int dest = ntohs(recvBuf[4]);
+
+            // if neighbor (if connection is there), flood LSP next cost
+            if (connections[dest] == true)
+            {
+                int cost = ntohl(recvBuf[6]);
+                // update adjMatrix, since link exists
+                adjMatrix[globalMyID][heardFrom] = cost;
+                adjMatrix[heardFrom][globalMyID] = cost;
+
+                // convert to netorder
+                short int selfID = htons(globalMyID);
+                short int hdest = htons(dest);
+                int ttl = htonl(50);
+                cost = htonl(cost);
+                sequenceNum++;
+                int seqNum = htonl(sequenceNum);
+
+                // forward it to neighbors
+                char sendBuf[2 + sizeof(short int) + sizeof(short int) + 3 * sizeof(int)];
+                strcpy(sendBuf, "ls");
+                memcpy(sendBuf + 2, &selfID, sizeof(short int));
+                memcpy(sendBuf + 2 + sizeof(short int), &hdest, sizeof(short int));
+                memcpy(sendBuf + 2 + 2 * sizeof(short int), &cost, sizeof(int));
+                memcpy(sendBuf + 2 + 2 * sizeof(short int) + sizeof(int), &seqNum, sizeof(int));
+                memcpy(sendBuf + 2 + 2 * sizeof(short int) + 2 * sizeof(int), &ttl, sizeof(int));
+                sendPacketToNeighbor(heardFrom, sendBuf);
+            }
         }
 
+        /* ---------- LINK STATE FLOODING ------------ */
         // 'ls'<2 ascii bytes> node 1<net order 2 byte signed> node 2<netorder 2byte signed> cost<net order 4 byte signed> seq_num<net order 4 byte signed> ttl<netorder 4 byte signed>
         // When routers propagate a new link (or send their own neighbors out)
-        // link state packet
+        // link state packet flood
         else if (!strncmp(recvBuf, "ls", 2))
         {
             int node1 = (int)ntohs(recvBuf[2]);
@@ -168,11 +199,12 @@ void lslistenForNeighbors()
                 // pthread_t updateThread;
                 // pthread_create(&updateThread, 0, sendPacketToNeighbor, packetArgs);
 
-                // TODO: do something with fwdTable
+                updateFwdTable(confirmedMap, connections, adjMatrix, costs);
             }
             // don't flood if already seen
         }
 
+        /* ---------- FORWARD PACKET ------------ */
         // got a forwarding packet
         //forward format: 'forward'<7 ASCII bytes>, destID<net order 2 byte signed>, <some ASCII message>
         else if (!strncmp(recvBuf, "forward", 7))
