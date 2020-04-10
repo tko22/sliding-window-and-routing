@@ -1,7 +1,7 @@
 use warnings;
 use strict;
 
-my $ifName = "eth0";
+my $ifName = "enp0s3";
 
 die ("Usage: perl make_topology.pl topology_filename\n") unless (defined $ARGV[0]);
 
