@@ -6,7 +6,7 @@ CC_INCLUDES=
 CC_ARGS=${CC_OPTS} ${CC_LIBS} ${CC_DEFINES} ${CC_INCLUDES}
 
 #target "all" depends on all others
-all: vec_router ls_router
+all: vec_router ls_router manager_send
 
 vec_router: vec_router.cpp
 	@${CC} ${CC_ARGS} -o vec_router vec_router.cpp

@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <map>
 #include <vector>
+#include <iostream>
+#include <iomanip>
+using namespace std;
 
 #include "monitor_neighbors.cpp"
 #include "ls_utils.cpp"
@@ -36,7 +39,6 @@ int adjMatrix[256][256] = {{0}}; // initialize all elements to zero, if nonzero,
 char *theLogFile;
 
 std::map<int, Entry> confirmedMap;
-std::vector<Entry> tentativeTable;
 
 void lslistenForNeighbors()
 {
@@ -67,6 +69,7 @@ void lslistenForNeighbors()
             // if new connection
             if (connections[heardFrom] == false)
             {
+                cout << globalMyID << " new connection with " << heardFrom << endl;
                 //this node can consider heardFrom to be directly connected to it; do any such logic now.
                 updateConnection(heardFrom, true);
 
@@ -74,8 +77,9 @@ void lslistenForNeighbors()
                 adjMatrix[globalMyID][heardFrom] = costs[heardFrom];
                 adjMatrix[heardFrom][globalMyID] = costs[heardFrom];
 
+                updateFwdTable(confirmedMap, adjMatrix);
                 // flood to all neighbors - including the neighbor you just got a message from
-                sequenceNum++; // increment sequence Number
+                sequenceNum = sequenceNum + 1; // increment sequence Number
                 floodLSP(connections, sequenceNum);
             }
 
@@ -87,16 +91,25 @@ void lslistenForNeighbors()
         //send format: 'send'<4 ASCII bytes>, destID<net order 2 byte signed>, <some ASCII message>
         if (!strncmp(recvBuf, "send", 4))
         {
+            std::cout << globalMyID << " -- Receive send -- " << endl;
             //send the requested message to the requested destination node
-            int dest = (int)ntohs(recvBuf[7]);
+            short int newdest;
+            memcpy(&newdest, recvBuf + 4, sizeof(short int));
+            int dest = (int)ntohs(newdest);
+
             // copy message over
-            // TODO: make sure length is correct
             char message[bytesRecvd - 6 + 1]; // 100 is max size for message
             int i;
             for (i = 6; i < bytesRecvd; i++)
             {
                 message[i - 6] = recvBuf[i];
             }
+            message[bytesRecvd - 6] = '\0';
+            std::cout << "message: " << message << endl;
+            cout << "message len: " << bytesRecvd - 6 << endl;
+            cout << "last char:  " << message[bytesRecvd - 6] << endl;
+
+            cout << "send dest: " << dest << endl;
 
             // decide whether to send
             if (dest == globalMyID)
@@ -106,36 +119,60 @@ void lslistenForNeighbors()
             }
             else
             {
+                std::cout << "decide to send out packet" << endl;
                 // check if you can reach node
                 if (confirmedMap.find(dest) == confirmedMap.end())
                 {
+                    std::cout << "dest: " << dest << " unreachable. write to log" << endl;
                     // key doesnt exist - can't reach
                     writeUnreachableLog(theLogFile, dest);
                 }
                 else
                 {
                     int nextHop = confirmedMap[dest].nexthop;
+                    std::cout << "nexthop for dest: " << dest << "is " << nextHop << endl;
+                    std::cout << "writing to log and sending..." << endl;
                     // write send log message
                     writeSendLog(theLogFile, dest, nextHop, message);
-                    sendForwardPacket(nextHop, dest, message);
+                    // remove null terminator
+                    char newMsg[bytesRecvd - 6];
+                    memcpy(&newMsg, message, bytesRecvd - 6);
+                    sendForwardPacket(nextHop, dest, newMsg);
                 }
             }
+            std::cout << "Confirmed table";
+            printMap(confirmedMap);
+            std::cout << " -- exit send receive -- \n"
+                      << endl;
         }
 
         /* ---------- COST CHANGE ------------ */
         //'cost'<4 ASCII bytes>, destID<net order 2 byte signed> newCost<net order 4 byte signed>
         else if (!strncmp(recvBuf, "cost", 4))
         {
+            cout << globalMyID << "-- Recieve cost -- " << endl;
             //record the cost change (remember, the link might currently be down! in that case,
             //this is the new cost you should treat it as having once it comes back up.)
-            updateCost(ntohs(recvBuf[4]), ntohl(recvBuf[6]));
 
-            int dest = ntohs(recvBuf[4]);
+            // dest
+            short int newdest;
+            memcpy(&newdest, recvBuf + 4, sizeof(short int));
+            int dest = (int)ntohs(newdest);
+
+            // cost
+            int cost;
+            memcpy(&cost, recvBuf + 6, sizeof(int));
+            cost = (int)ntohl(cost);
+
+            updateCost(dest, cost);
+
+            cout << "receive cost - dest: " << dest << endl;
+            cout << "receive cost - costs: " << cost << endl;
 
             // if neighbor (if connection is there), flood LSP next cost
             if (connections[dest] == true)
             {
-                int cost = ntohl(recvBuf[6]);
+                std::cout << "going to flood because cost change for neighbor" << endl;
                 // update adjMatrix, since link exists
                 adjMatrix[globalMyID][heardFrom] = cost;
                 adjMatrix[heardFrom][globalMyID] = cost;
@@ -144,20 +181,28 @@ void lslistenForNeighbors()
                 short int selfID = htons(globalMyID);
                 short int hdest = htons(dest);
                 int ttl = htonl(50);
-                cost = htonl(cost);
                 sequenceNum++;
                 int seqNum = htonl(sequenceNum);
+                int hCost = htonl(cost);
 
-                // forward it to neighbors
+                // LSP flood it to neighbors
                 char sendBuf[2 + sizeof(short int) + sizeof(short int) + 3 * sizeof(int)];
                 strcpy(sendBuf, "ls");
                 memcpy(sendBuf + 2, &selfID, sizeof(short int));
                 memcpy(sendBuf + 2 + sizeof(short int), &hdest, sizeof(short int));
-                memcpy(sendBuf + 2 + 2 * sizeof(short int), &cost, sizeof(int));
-                memcpy(sendBuf + 2 + 2 * sizeof(short int) + sizeof(int), &seqNum, sizeof(int));
-                memcpy(sendBuf + 2 + 2 * sizeof(short int) + 2 * sizeof(int), &ttl, sizeof(int));
-                sendPacketToNeighbor(heardFrom, sendBuf);
+                memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int), &hCost, sizeof(int));
+                memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int) + sizeof(int), &seqNum, sizeof(int));
+                memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int) + sizeof(int) + sizeof(int), &ttl, sizeof(int));
+                for (int i = 0; i < 256; i++)
+                    // send to neighbors except self and exceptID (used for not sending an update packet)
+                    if (i != globalMyID && connections[i] == true)
+                        sendto(globalSocketUDP, sendBuf, sizeof(sendBuf), 0,
+                               (struct sockaddr *)&globalNodeAddrs[i], sizeof(globalNodeAddrs[i]));
             }
+            std::cout << "Confirmed table";
+            printMap(confirmedMap);
+            std::cout << " -- exit cost receive -- \n"
+                      << endl;
         }
 
         /* ---------- LINK STATE FLOODING ------------ */
@@ -166,19 +211,43 @@ void lslistenForNeighbors()
         // link state packet flood
         else if (!strncmp(recvBuf, "ls", 2))
         {
-            int node1 = (int)ntohs(recvBuf[2]);
-            int node2 = (int)ntohs(recvBuf[4]);
-            int seqNum = ntohl(recvBuf[10]);
-            int ttl = ntohl(recvBuf[14]);
+            cout << globalMyID << " -- Recieve LSP flood -- " << endl;
+            short int node1c;
+            memcpy(&node1c, recvBuf + 2, sizeof(short int));
+            int node1 = (int)ntohs(node1c);
+
+            short int node2c;
+            memcpy(&node2c, recvBuf + 2 + sizeof(short int), sizeof(short int));
+            int node2 = (int)ntohs(node2c);
+
+            // cost
+            int wcost;
+            memcpy(&wcost, recvBuf + 6, sizeof(int));
+            int cost = (int)ntohl(wcost);
+
+            // sequence Number
+            int seqNum;
+            memcpy(&seqNum, recvBuf + 10, sizeof(int));
+            seqNum = ntohl(seqNum);
+
+            // ttl
+            int ttl;
+            memcpy(&ttl, recvBuf + 14, sizeof(int));
+            ttl = ntohl(ttl);
             ttl = ttl - 1; // subtract ttl
 
-            // if haven't seen and ttl is still ok
-            // TODO: check sequence number too, need to keep track it first
-            if (adjMatrix[node1][node2] == 0 && ttl > 0)
-            {
+            std::cout << "node1 " << node1 << endl;
+            std::cout << "node2 " << node2 << endl;
+            std::cout << "seqNum " << seqNum << endl;
+            std::cout << "ttl " << ttl << endl;
+            std::cout << "cost " << cost << endl;
 
-                adjMatrix[node1][node2] = ntohl(recvBuf[6]); // set costs
-                adjMatrix[node2][node1] = ntohl(recvBuf[6]); // set costs
+            // if (haven't seen or cost change ) and ttl is still ok
+            // TODO: check sequence number too, need to keep track it first
+            if ((seqNum >= sequenceNum || adjMatrix[node1][node2] != cost) && ttl > 0)
+            {
+                adjMatrix[node1][node2] = cost; // set costs
+                adjMatrix[node2][node1] = cost; // set costs
 
                 // convert to netorder
                 short int hNode1 = htons(node1);
@@ -190,17 +259,21 @@ void lslistenForNeighbors()
                 strcpy(sendBuf, "ls");
                 memcpy(sendBuf + 2, &hNode1, sizeof(short int));
                 memcpy(sendBuf + 2 + sizeof(short int), &hNode2, sizeof(short int));
-                memcpy(sendBuf + 2 + 2 * sizeof(short int), &recvBuf[6], sizeof(int)); // hopefully this works (&recvBuf? // TODO:
+                memcpy(sendBuf + 2 + 2 * sizeof(short int), &recvBuf[6], sizeof(int));
                 memcpy(sendBuf + 2 + 2 * sizeof(short int) + sizeof(int), &recvBuf[10], sizeof(int));
                 memcpy(sendBuf + 2 + 2 * sizeof(short int) + 2 * sizeof(int), &ttl, sizeof(int));
-                sendPacketToNeighbor(heardFrom, sendBuf);
+                for (int i = 0; i < 256; i++)
+                    // send to neighbors except self and exceptID (used for not sending an update packet)
+                    if (i != globalMyID && connections[i] == true && i != heardFrom)
+                        sendto(globalSocketUDP, sendBuf, sizeof(sendBuf), 0,
+                               (struct sockaddr *)&globalNodeAddrs[i], sizeof(globalNodeAddrs[i]));
 
-                // use threads if too slow
-                // pthread_t updateThread;
-                // pthread_create(&updateThread, 0, sendPacketToNeighbor, packetArgs);
-
-                updateFwdTable(confirmedMap, connections, adjMatrix, costs);
+                updateFwdTable(confirmedMap, adjMatrix);
             }
+            std::cout << "Confirmed table";
+            printMap(confirmedMap);
+            std::cout << "-- exit ls receive -- \n"
+                      << endl;
             // don't flood if already seen
         }
 
@@ -209,7 +282,13 @@ void lslistenForNeighbors()
         //forward format: 'forward'<7 ASCII bytes>, destID<net order 2 byte signed>, <some ASCII message>
         else if (!strncmp(recvBuf, "forward", 7))
         {
-            int dest = (int)ntohs(recvBuf[7]);
+            std::cout << globalMyID << " -- Receive forward -- " << endl;
+
+            // dest
+            short int newdest;
+            memcpy(&newdest, recvBuf + 7, sizeof(short int));
+            int dest = (int)ntohs(newdest);
+
             // copy message over
             char message[bytesRecvd - 9 + 1]; // 100 is max size for message
             int i;
@@ -217,32 +296,49 @@ void lslistenForNeighbors()
             {
                 message[i - 9] = recvBuf[i];
             }
+            message[bytesRecvd - 9] = '\0';
+            cout << "message: " << message << endl;
+            cout << "message len: " << bytesRecvd - 9 << endl;
+            cout << "last char:  " << message[bytesRecvd - 9] << endl;
+            cout << "last char2:  " << message[bytesRecvd - 10] << endl;
 
             // decide whether to forward or not
             if (dest == globalMyID)
             {
+                std::cout << "packet is mine - message: " << message << endl;
                 // if dest is itself, write to log, receive
                 writeReceiveLog(theLogFile, message);
             }
             else
             {
-
+                std::cout << "need to forward packet for " << dest << endl;
                 // need to forward
                 // look at forward table and send
                 // check if unreachable (for debugging maybe print it out to see whether you did it wrong or not)
                 if (confirmedMap.find(dest) == confirmedMap.end())
                 {
+                    std::cout << "dest: " << dest << " unreachable. write to log" << endl;
                     // key doesnt exist - can't reach
                     writeUnreachableLog(theLogFile, dest);
                 }
                 else
                 {
                     int nextHop = confirmedMap[dest].nexthop;
+                    std::cout << "nexthop for dest: " << dest << "is " << nextHop << endl;
+                    std::cout << "writing to log and sending..." << endl;
                     // write send log message
                     writeForwardLog(theLogFile, dest, nextHop, message);
-                    sendForwardPacket(nextHop, dest, message);
+
+                    // remove null terminator
+                    char newMsg[bytesRecvd - 6];
+                    memcpy(&newMsg, message, bytesRecvd - 6);
+                    sendForwardPacket(nextHop, dest, newMsg);
                 }
             }
+            std::cout << "Confirmed table";
+            printMap(confirmedMap);
+            std::cout << "-- exit forward receive -- \n"
+                      << endl;
         }
     }
     //(should never reach here)
@@ -264,6 +360,8 @@ int main(int argc, char **argv)
     //initialization: get this process's node ID, record what time it is,
     //and set up our sockaddr_in's for sending to the other nodes.
     globalMyID = atoi(argv[1]);
+
+    std::cout << "Starting " << globalMyID << endl;
     int i;
     for (i = 0; i < 256; i++)
     {
@@ -334,7 +432,7 @@ int main(int argc, char **argv)
     bindAddr.sin_family = AF_INET;
     bindAddr.sin_port = htons(7777);
     inet_pton(AF_INET, myAddr, &bindAddr.sin_addr);
-    if (bind(globalSocketUDP, (struct sockaddr *)&bindAddr, sizeof(struct sockaddr_in)) < 0)
+    if (::bind(globalSocketUDP, (struct sockaddr *)&bindAddr, sizeof(struct sockaddr_in)) < 0)
     {
         perror("bind");
         close(globalSocketUDP);

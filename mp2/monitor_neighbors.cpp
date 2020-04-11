@@ -43,7 +43,7 @@ void writeSendLog(char *theLogFile, int dest, int nexthop, char *message)
     char logLine[LOG_LINE_LENGTH];
     memset(logLine, '\0', LOG_LINE_LENGTH);
     sprintf(logLine, "sending packet dest %d nexthop %d message %s\n", dest, nexthop, message);
-    writeToLog(theLogFile,logLine);
+    writeToLog(theLogFile, logLine);
 }
 
 void writeForwardLog(char *theLogFile, int dest, int nexthop, char *message)
