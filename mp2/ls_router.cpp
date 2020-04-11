@@ -99,15 +99,13 @@ void lslistenForNeighbors()
 
             // copy message over
             char message[bytesRecvd - 6 + 1]; // 100 is max size for message
-            int i;
-            for (i = 6; i < bytesRecvd; i++)
-            {
-                message[i - 6] = recvBuf[i];
-            }
+            memcpy(message, recvBuf + 6, bytesRecvd - 6);
             message[bytesRecvd - 6] = '\0';
+
             std::cout << "message: " << message << endl;
             cout << "message len: " << bytesRecvd - 6 << endl;
-            cout << "last char:  " << message[bytesRecvd - 6] << endl;
+            cout << "strelen " << strlen(message) << endl;
+            cout << "last char:  " << message[bytesRecvd - 6 - 1] << endl;
 
             cout << "send dest: " << dest << endl;
 
@@ -134,10 +132,22 @@ void lslistenForNeighbors()
                     std::cout << "writing to log and sending..." << endl;
                     // write send log message
                     writeSendLog(theLogFile, dest, nextHop, message);
+
                     // remove null terminator
-                    char newMsg[bytesRecvd - 6];
-                    memcpy(&newMsg, message, bytesRecvd - 6);
-                    sendForwardPacket(nextHop, dest, newMsg);
+                    // char newMsg[bytesRecvd - 6];
+                    // memcpy(&newMsg, message, bytesRecvd - 6);
+                    // cout << "len newmse" << strlen(newMsg) << endl;
+                    // cout << "last letter" << newMsg[bytesRecvd - 6] << endl;
+                    // sendForwardPacket(nextHop, dest, newMsg);
+
+                    std::cout << "Forwarding Packet to " << nextHop << " with dest: " << dest << endl;
+                    char sendBuf[7 + sizeof(short int) + strlen(message)];
+                    short int no_destID = htons(dest);
+                    strcpy(sendBuf, "forward");
+                    memcpy(sendBuf + 7, &no_destID, sizeof(short int));
+                    memcpy(sendBuf + 7 + sizeof(short int), message, strlen(message));
+                    sendto(globalSocketUDP, sendBuf, sizeof(sendBuf), 0,
+                           (struct sockaddr *)&globalNodeAddrs[nextHop], sizeof(globalNodeAddrs[nextHop]));
                 }
             }
             std::cout << "Confirmed table";
@@ -298,9 +308,6 @@ void lslistenForNeighbors()
             }
             message[bytesRecvd - 9] = '\0';
             cout << "message: " << message << endl;
-            cout << "message len: " << bytesRecvd - 9 << endl;
-            cout << "last char:  " << message[bytesRecvd - 9] << endl;
-            cout << "last char2:  " << message[bytesRecvd - 10] << endl;
 
             // decide whether to forward or not
             if (dest == globalMyID)
@@ -330,9 +337,14 @@ void lslistenForNeighbors()
                     writeForwardLog(theLogFile, dest, nextHop, message);
 
                     // remove null terminator
-                    char newMsg[bytesRecvd - 6];
-                    memcpy(&newMsg, message, bytesRecvd - 6);
-                    sendForwardPacket(nextHop, dest, newMsg);
+                    std::cout << "Forwarding Packet to " << nextHop << " with dest: " << dest << endl;
+                    char sendBuf[7 + sizeof(short int) + strlen(message)];
+                    short int no_destID = htons(dest);
+                    strcpy(sendBuf, "forward");
+                    memcpy(sendBuf + 7, &no_destID, sizeof(short int));
+                    memcpy(sendBuf + 7 + sizeof(short int), message, strlen(message));
+                    sendto(globalSocketUDP, sendBuf, sizeof(sendBuf), 0,
+                           (struct sockaddr *)&globalNodeAddrs[nextHop], sizeof(globalNodeAddrs[nextHop]));
                 }
             }
             std::cout << "Confirmed table";
