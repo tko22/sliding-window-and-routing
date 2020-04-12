@@ -51,11 +51,12 @@ void sendPacketToNeighbor(int exceptID, char *buf)
 }
 
 // 'ls'<2 ascii bytes> node 1<net order 2 byte signed> node 2<netorder 2byte signed> cost<net order 4 byte signed> seq_num<net order 4 byte signed> ttl<netorder 4 byte signed>
-void floodLSP(bool *connections, int sequenceNum)
+void floodLSP(bool *connections, int seqNumMatrix[256][256])
 {
     std::cout << "floodlsp Called" << endl;
     int i;
     for (i = 0; i < 256; i++)
+    {
 
         if (i != globalMyID && connections[i] == true)
         {
@@ -64,8 +65,11 @@ void floodLSP(bool *connections, int sequenceNum)
             short int node1 = htons(globalMyID);
             short int node2 = htons(i);
 
+            seqNumMatrix[globalMyID][i]++; // increment sqeuence number for self
+            int sequenceNumber = seqNumMatrix[globalMyID][i];
+            int seqNum = htonl(sequenceNumber);
+
             int cost = htonl(costs[i]);
-            int seqNum = htonl(sequenceNum);
             int ttl = htonl(50);
             char sendBuf[2 + sizeof(short int) + sizeof(short int) + sizeof(int) + sizeof(int) + sizeof(int)];
             strcpy(sendBuf, "ls");
@@ -77,6 +81,43 @@ void floodLSP(bool *connections, int sequenceNum)
             sendto(globalSocketUDP, sendBuf, sizeof(sendBuf), 0,
                    (struct sockaddr *)&globalNodeAddrs[i], sizeof(globalNodeAddrs[i]));
         }
+    }
+}
+
+void sendDownLSP(int seqNumMatrix[256][256], int downNode)
+{
+    // sends lsp to all neighbors about downNode with cost 0
+    std::cout << "sending down link lsp to all neighbors (cost 0) with " << downNode << endl;
+    for (int i = 0; i < 256; i++)
+    {
+
+        // if neighbor, send
+        if (i != globalMyID && connections[i] == true)
+        {
+            std::cout << "floodlsp to node: " << i << "-- lsp: " << globalMyID << " -> " << i << "with cost 0" << endl;
+
+            short int node1 = htons(globalMyID);
+            short int node2 = htons(downNode);
+
+            seqNumMatrix[globalMyID][downNode]++; // increment sqeuence number for self
+            int sequenceNumber = seqNumMatrix[globalMyID][downNode];
+            int seqNum = htonl(sequenceNumber);
+            int ttl = htonl(50);
+
+            // Set Cost as 0
+            int cost = htonl(0);
+
+            char sendBuf[2 + sizeof(short int) + sizeof(short int) + sizeof(int) + sizeof(int) + sizeof(int)];
+            strcpy(sendBuf, "ls");
+            memcpy(sendBuf + 2, &node1, sizeof(short int));
+            memcpy(sendBuf + 2 + sizeof(short int), &node2, sizeof(short int));
+            memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int), &cost, sizeof(int));
+            memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int) + sizeof(int), &seqNum, sizeof(int));
+            memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int) + sizeof(int) + sizeof(int), &ttl, sizeof(int));
+            sendto(globalSocketUDP, sendBuf, sizeof(sendBuf), 0,
+                   (struct sockaddr *)&globalNodeAddrs[i], sizeof(globalNodeAddrs[i]));
+        }
+    }
 }
 
 //forward format: 'forward'<7 ASCII bytes>, destID<net order 2 byte signed>, <some ASCII message>
@@ -194,14 +235,14 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
         confirmedMap[nextEntry.dest] = nextEntry;
 
         std::cout << "next Entry: " << nextEntry.dest << endl;
-        std::cout << "tentative table after remove next entry: ";
-        printVectorEntry(tentativeTable);
+        // std::cout << "tentative table after remove next entry: ";
+        // printVectorEntry(tentativeTable);
 
         // 2) get next hop from Next
         int nextHop = nextEntry.nexthop;
         int nextID = nextEntry.dest;
 
-        std::cout << "checking neigbhors of nextID: " << nextID << endl;
+        // std::cout << "checking neigbhors of nextID: " << nextID << endl;
         // add it's neighbors
         for (i = 0; i < 256; i++)
         {
@@ -212,17 +253,17 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
                 //Cost(me, Neighbor - i) = Cost(me, Next) + Cost(Next, Neighbor - i)
                 std::cout << "i: " << i << " is neighbor to nextID:" << nextID << endl;
                 int cost = nextEntry.cost + adjMatrix[nextID][i];
-                std::cout << "new cost: " << cost << endl;
+                // std::cout << "new cost: " << cost << endl;
                 bool in_tent = false;
                 // if neighbor(i) is in tentative, update cost and nextHop
                 for (int x = 0; x < tentativeTable.size(); x++)
                 {
                     if (tentativeTable[x].dest == i)
                     {
-                        std::cout << "found neighbor in tentative, check update cost" << endl;
+                        // std::cout << "found neighbor in tentative, check update cost" << endl;
                         in_tent = true; // for next check, if not in tentative and confirmed
                         // if new cost is lower than current tentative cost
-                        std::cout << "tentative table cost for x: " << x << " is: " << tentativeTable[x].cost << endl;
+                        // std::cout << "tentative table cost for x: " << x << " is: " << tentativeTable[x].cost << endl;
                         if (tentativeTable[x].cost > cost)
                         {
                             tentativeTable[x].cost = cost;
@@ -235,8 +276,8 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
                 // if neighbor(i) not in tentative or confirmed, add to tentative
                 if (in_tent == false && confirmedMap.find(i) == confirmedMap.end())
                 {
-                    std::cout << "i isn't in tentative" << endl;
-                    std::cout << "add new neighbor i: " << i << endl;
+                    // std::cout << "i isn't in tentative" << endl;
+                    // std::cout << "add new neighbor i: " << i << endl;
                     // key doesnt exist - can't reach, not in tentative
                     // Add to tentative
                     // i is a neighbor
@@ -248,9 +289,8 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
                 }
             }
         }
-        std::cout << "done" << endl;
     }
-    std::cout << "confirmed table   ";
+    std::cout << globalMyID << " -- confirmed table";
     printMap(confirmedMap);
     std::cout << "exit updatefwdtable \n"
               << endl;
