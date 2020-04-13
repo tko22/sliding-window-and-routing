@@ -18,7 +18,7 @@
 #define HEARTBEAT_TIMEOUT 1
 #define MESSAGE_BUF_SIZE 120
 // TODO: Verify this limit (check with line topology)
-#define INFINITY_LIMIT = 512
+#define INFINITY_LIMIT 512
 
 typedef struct Entry {
     int32_t dist;
@@ -44,47 +44,21 @@ Entry dvTable[NUM_NODES];
 
 char *logFile;
 
-// LOCAL HELPER FUNCTIONS
-// Check heartbeats for expired connections
-void checkHeartbeats() {
-    timeval now;
-    gettimeofday(&now, 0);
-
-    for (int i = 0; i < NUM_NODES; ++i) {
-        if (now.tv_sec - globalLastHeartbeat[i].tv_sec >= HEARTBEAT_TIMEOUT) {
-            connections[i] = false;
-
-            updateDistVec(i, -1, -1);
-        }
-    }
-}
-
-// Update local Distance Vector data and send messages to neighbors if necessary
-void updateDistVec(int16_t nodeID, int32_t dist, int_16_t nextHop) {
-    if (nodeID >= 0 && nodeID < NUM_NODES) {
-        // Check to make sure that the update is necessary
-        if (dvTable[nodeID].dist < dist ||
-            (nextHop < dvTable[nodeID].nextHop &&
-             dvTable[nodeID].dist == dist) ||
-            dvTable[nodeID].dist != dist &&
-                (dvTable[nodeID].nextHop == nextHop ||
-                 dvTable[nodeID].dist == -1)) {
-            if (dist > INFINITY_LIMIT) {
-                dist = -1;
-            }
-            // Update Table
-            dvTable[nodeID].nextHop = nextHop;
-            dvTable[nodeID].dist = dist;
-
-            // Tell neighbors about update
-            sendDistVecUpdate(nodeID, dist);
+// SEND FUNCTIONS
+// Send message directly to connected host
+void sendMessage(int16_t nodeID, char *msg, int length) {
+    if (nodeID >= 0 && nodeID < NUM_NODES && connections[nodeID]) {
+        if (sendto(globalSocketUDP, msg, length, 0,
+                   (struct sockaddr *)&globalNodeAddrs[nodeID],
+                   sizeof(globalNodeAddrs[nodeID])) < 0) {
+            fprintf(stderr, "Error sending to node: %d", nodeID);
         }
     } else {
-        fprintf(stderr, "Invalid nodeID: %d", nodeID);
+        fprintf(stderr, "There is no direct connection to this node: %d",
+                nodeID);
     }
 }
 
-// SEND FUNCTIONS
 // Send Distance Vector update message to neighbors
 void sendDistVecUpdate(int16_t nodeID, int32_t dist) {
     char sendBuf[MESSAGE_BUF_SIZE];
@@ -104,9 +78,9 @@ void sendDistVecUpdate(int16_t nodeID, int32_t dist) {
     for (int i = 0; i < NUM_NODES; ++i) {
         if (connections[nodeID]) {
             if (i == dvTable[nodeID].nextHop) {
-                sendMessage(i, poisonedReverseBuf, num_bytes)
+                sendMessage(i, poisonedReverseBuf, num_bytes);
             } else {
-                sendMessage(i, sendBuf, num_bytes)
+                sendMessage(i, sendBuf, num_bytes);
             }
         }
     }
@@ -130,21 +104,47 @@ void forwardMessage(int16_t nodeID, char *msg, int length, bool originate) {
             writeForwardLog(logFile, nodeID, dvTable[nodeID].nextHop, msg);
         }
     } else {
-        writeUnreachableLog(logFile, nodeID)
+        writeUnreachableLog(logFile, nodeID);
     }
 }
 
-// Send message directly to connected host
-void sendMessage(int16_t nodeID, char *msg, int length) {
-    if (nodeID >= 0 && nodeID < NUM_NODES && connections[nodeID]) {
-        if (sendto(globalSocketUDP, msg, length, 0,
-                   (struct sockaddr *)&globalNodeAddrs[nodeID],
-                   sizeof(globalNodeAddrs[nodeID])) < 0) {
-            fprintf(stderr, "Error sending to node: %d", nodeID);
+// LOCAL HELPER FUNCTIONS
+// Update local Distance Vector data and send messages to neighbors if necessary
+void updateDistVec(int16_t nodeID, int32_t dist, int16_t nextHop) {
+    if (nodeID >= 0 && nodeID < NUM_NODES) {
+        // Check to make sure that the update is necessary
+        if (dvTable[nodeID].dist < dist ||
+            (nextHop < dvTable[nodeID].nextHop &&
+             dvTable[nodeID].dist == dist) ||
+            dvTable[nodeID].dist != dist &&
+                (dvTable[nodeID].nextHop == nextHop ||
+                 dvTable[nodeID].dist == -1)) {
+            if (dist > INFINITY_LIMIT) {
+                dist = -1;
+            }
+            // Update Table
+            dvTable[nodeID].nextHop = nextHop;
+            dvTable[nodeID].dist = dist;
+
+            // Tell neighbors about update
+            sendDistVecUpdate(nodeID, dist);
         }
     } else {
-        fprintf(stderr, "There is no direct connection to this node: %d",
-                nodeID);
+        fprintf(stderr, "Invalid nodeID: %d", nodeID);
+    }
+}
+
+// Check heartbeats for expired connections
+void checkHeartbeats() {
+    timeval now;
+    gettimeofday(&now, 0);
+
+    for (int i = 0; i < NUM_NODES; ++i) {
+        if (now.tv_sec - globalLastHeartbeat[i].tv_sec >= HEARTBEAT_TIMEOUT) {
+            connections[i] = false;
+
+            updateDistVec(i, -1, -1);
+        }
     }
 }
 
@@ -188,7 +188,7 @@ void vecListenForNeighbors() {
             int16_t destNode = ntohs(*((int16_t *)recvBuf + 4));
             recvBuf[bytesRecvd] = '\0';
 
-            forwardMessage(destNode, recvBuf + 6, bytesRecvd - 5, true)
+            forwardMessage(destNode, recvBuf + 6, bytesRecvd - 5, true);
         }
         //'cost'<4 ASCII bytes>, destID<net order 2 byte signed> newCost<net
         // order 4 byte signed>
@@ -208,9 +208,9 @@ void vecListenForNeighbors() {
             int16_t destNode = ntohs(*((int16_t *)recvBuf + 4));
 
             if (destNode == globalMyID) {
-                writeReceiveLog(logFile, recvBuf + 6)
+                writeReceiveLog(logFile, recvBuf + 6);
             } else {
-                forwardMessage(destNode, recvBuf + 6, bytesRecvd - 6, false)
+                forwardMessage(destNode, recvBuf + 6, bytesRecvd - 6, false);
             }
         }
         //'dist'<4 ASCII bytes>, nodeID<host order 2 byte signed>, newDist<host
@@ -227,86 +227,87 @@ void vecListenForNeighbors() {
         //(should never reach here)
         close(globalSocketUDP);
     }
+}
 
-    int main(int argc, char **argv) {
-        if (argc != 4) {
-            fprintf(stderr, "Usage: %s mynodeid initialcostsfile logfile\n\n",
-                    argv[0]);
-            exit(1);
-        }
-
-        // initialization: get this process's node ID, record what time it is,
-        // and set up our sockaddr_in's for sending to the other nodes.
-        globalMyID = atoi(argv[1]);
-        int i;
-        for (i = 0; i < NUM_NODES; ++i) {
-            gettimeofday(&globalLastHeartbeat[i], 0);
-
-            char tempaddr[100];
-            sprintf(tempaddr, "10.1.1.%d", i);
-            memset(&globalNodeAddrs[i], 0, sizeof(globalNodeAddrs[i]));
-            globalNodeAddrs[i].sin_family = AF_INET;
-            globalNodeAddrs[i].sin_port = htons(7777);
-            inet_pton(AF_INET, tempaddr, &globalNodeAddrs[i].sin_addr);
-        }
-
-        FILE *fp;
-        int buffLen = 50;
-        char buff[buffLen];
-        char *costPtr;
-        int nodeID;
-
-        fp = fopen(argv[2], "r");
-        if (fp == NULL) {
-            perror("Invalid initial costs file");
-            return -1;
-        }
-
-        while (fgets(buff, buffLen, fp)) {
-            costPtr = strchr(buff, ' ');
-            *costPtr = '\0';
-            costPtr++;
-
-            updateCost(atoi(buff), atoi(costPtr));
-        }
-
-        for (int i = 0; i < NUM_NODES; ++i) {
-            if (costs[i] == 0) {
-                costs[i] = 1;
-            }
-        }
-
-        costs[globalMyID] = 0;
-
-        fclose(fp);
-
-        // socket() and bind() our socket. We will do all sendto()ing and
-        // recvfrom()ing on this one.
-        if ((globalSocketUDP = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-            perror("socket");
-            exit(1);
-        }
-        char myAddr[100];
-        struct sockaddr_in bindAddr;
-        sprintf(myAddr, "10.1.1.%d", globalMyID);
-        memset(&bindAddr, 0, sizeof(bindAddr));
-        bindAddr.sin_family = AF_INET;
-        bindAddr.sin_port = htons(7777);
-        inet_pton(AF_INET, myAddr, &bindAddr.sin_addr);
-        if (bind(globalSocketUDP, (struct sockaddr *)&bindAddr,
-                 sizeof(struct sockaddr_in)) < 0) {
-            perror("bind");
-            close(globalSocketUDP);
-            exit(1);
-        }
-
-        logFile = argv[3];
-
-        // start threads... feel free to add your own, and to remove the
-        // provided ones.
-        pthread_t announcerThread;
-        pthread_create(&announcerThread, 0, announceToNeighbors, (void *)0);
-
-        // good luck, have fun!
-        vecListenForNeighbors();
+int main(int argc, char **argv) {
+    if (argc != 4) {
+        fprintf(stderr, "Usage: %s mynodeid initialcostsfile logfile\n\n",
+                argv[0]);
+        exit(1);
     }
+
+    // initialization: get this process's node ID, record what time it is,
+    // and set up our sockaddr_in's for sending to the other nodes.
+    globalMyID = atoi(argv[1]);
+    int i;
+    for (i = 0; i < NUM_NODES; ++i) {
+        gettimeofday(&globalLastHeartbeat[i], 0);
+
+        char tempaddr[100];
+        sprintf(tempaddr, "10.1.1.%d", i);
+        memset(&globalNodeAddrs[i], 0, sizeof(globalNodeAddrs[i]));
+        globalNodeAddrs[i].sin_family = AF_INET;
+        globalNodeAddrs[i].sin_port = htons(7777);
+        inet_pton(AF_INET, tempaddr, &globalNodeAddrs[i].sin_addr);
+    }
+
+    FILE *fp;
+    int buffLen = 50;
+    char buff[buffLen];
+    char *costPtr;
+    int nodeID;
+
+    fp = fopen(argv[2], "r");
+    if (fp == NULL) {
+        perror("Invalid initial costs file");
+        return -1;
+    }
+
+    while (fgets(buff, buffLen, fp)) {
+        costPtr = strchr(buff, ' ');
+        *costPtr = '\0';
+        costPtr++;
+
+        updateCost(atoi(buff), atoi(costPtr));
+    }
+
+    for (int i = 0; i < NUM_NODES; ++i) {
+        if (costs[i] == 0) {
+            costs[i] = 1;
+        }
+    }
+
+    costs[globalMyID] = 0;
+
+    fclose(fp);
+
+    // socket() and bind() our socket. We will do all sendto()ing and
+    // recvfrom()ing on this one.
+    if ((globalSocketUDP = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+        perror("socket");
+        exit(1);
+    }
+    char myAddr[100];
+    struct sockaddr_in bindAddr;
+    sprintf(myAddr, "10.1.1.%d", globalMyID);
+    memset(&bindAddr, 0, sizeof(bindAddr));
+    bindAddr.sin_family = AF_INET;
+    bindAddr.sin_port = htons(7777);
+    inet_pton(AF_INET, myAddr, &bindAddr.sin_addr);
+    if (bind(globalSocketUDP, (struct sockaddr *)&bindAddr,
+                sizeof(struct sockaddr_in)) < 0) {
+        perror("bind");
+        close(globalSocketUDP);
+        exit(1);
+    }
+
+    logFile = argv[3];
+
+    // start threads... feel free to add your own, and to remove the
+    // provided ones.
+    pthread_t announcerThread;
+    pthread_create(&announcerThread, 0, announceToNeighbors, (void *)0);
+
+    // good luck, have fun!
+    vecListenForNeighbors();
+}
