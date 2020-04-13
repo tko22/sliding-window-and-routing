@@ -6,6 +6,8 @@
 #include <iostream>
 #include <iomanip>
 #include <chrono>
+#include <time.h>
+
 
 using namespace std;
 
@@ -71,15 +73,14 @@ void lslistenForNeighbors()
             heardFrom = atoi(
                 strchr(strchr(strchr(fromAddr, '.') + 1, '.') + 1, '.') + 1);
 
-            auto timeNow = std::chrono::steady_clock::now();
-            lastTimeHeardFrom[heardFrom] = timeNow;
+
+            timeval now;
+            gettimeofday(&now, 0);
             // if any connections are different by 3 pings then it is broken, send ls
             for (int x = 0; x < 256; x++)
             {
-                std::chrono::duration<double> diff = timeNow - lastTimeHeardFrom[x];
-
-                // last time you heard from node x (which you already had a connection with) is more than 3 pings
-                if (diff.count() > 6 && connections[x] == true)
+                // last time you heard from node x (which you already had a connection with) is more than 2 seconds
+                if ((now.tv_sec - globalLastHeartbeat[x].tv_sec) >= 1.5 && connections[x] == true)
                 {
                     std::cout << "\n" << "DOWN NODE ~~~~~~ link with " << x << " is down..." << endl;
                     // set connection with x to false, no longer neighbor
@@ -131,7 +132,7 @@ void lslistenForNeighbors()
             if (dest == globalMyID)
             {
                 // if dest is itself, write to log, receive
-                writeReceiveLog(theLogFile, message);
+                lswriteReceiveLog(theLogFile, message);
             }
             else
             {
@@ -141,7 +142,7 @@ void lslistenForNeighbors()
                 {
                     std::cout << "dest: " << dest << " unreachable. write to log" << endl;
                     // key doesnt exist - can't reach
-                    writeUnreachableLog(theLogFile, dest);
+                    lswriteUnreachableLog(theLogFile, dest);
                 }
                 else
                 {
@@ -149,7 +150,7 @@ void lslistenForNeighbors()
                     std::cout << "nexthop for dest: " << dest << " is " << nextHop << endl;
                     std::cout << "writing to log and sending..." << endl;
                     // write send log message
-                    writeSendLog(theLogFile, dest, nextHop, message);
+                    lswriteSendLog(theLogFile, dest, nextHop, message);
 
                     std::cout << "Forwarding Packet to " << nextHop << " with dest: " << dest << endl;
                     char sendBuf[7 + sizeof(short int) + strlen(message)];
@@ -332,7 +333,7 @@ void lslistenForNeighbors()
             {
                 std::cout << "GOT PACKET: packet is MINE - message: " << message << endl;
                 // if dest is itself, write to log, receive
-                writeReceiveLog(theLogFile, message);
+                lswriteReceiveLog(theLogFile, message);
             }
             else
             {
@@ -344,7 +345,7 @@ void lslistenForNeighbors()
                 {
                     std::cout << "dest: " << dest << " unreachable. write to log" << endl;
                     // key doesnt exist - can't reach
-                    writeUnreachableLog(theLogFile, dest);
+                    lswriteUnreachableLog(theLogFile, dest);
                 }
                 else
                 {
@@ -352,7 +353,7 @@ void lslistenForNeighbors()
                     std::cout << "nexthop for dest: " << dest << "is " << nextHop << endl;
                     std::cout << "writing to log and sending..." << endl;
                     // write send log message
-                    writeForwardLog(theLogFile, dest, nextHop, message);
+                    lswriteForwardLog(theLogFile, dest, nextHop, message);
 
                     // remove null terminator
                     std::cout << "Forwarding Packet to " << nextHop << " with dest: " << dest << endl;
