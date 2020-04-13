@@ -38,4 +38,4 @@ while(my $curLine = <TOPOFILE>)
 #NOTE: if you have your VM configured with the NAT interface that lets
 #	it access the internet, this next line will cut it off.
 #	Can you figure out how to tell iptables to keep that address online?
-`sudo iptables -A OUTPUT -s 10.0.0.0/16 -j DROP`;
+`sudo iptables -A OUTPUT -s 10.1.0.0/16 -j DROP`;

@@ -1,0 +1,23 @@
+alias flush="sudo iptables --flush"
+alias start5="./ls_router 5 ./testtopo_initial_link_cost_files/testinitcosts5 log5.txt"
+alias start1="./ls_router 1 ./testtopo_initial_link_cost_files/testinitcosts1 log1.txt"
+alias start2="./ls_router 2 ./testtopo_initial_link_cost_files/testinitcosts2 log2.txt"
+alias source="source ~/.bashrc"
+alias maketop="perl ./utility/make_topology.pl ./utility/testtopo.txt"
+alias mp2="cd ~/cs438/group54/mp2"
+alias lsiptables="iptables -L --numeric"
+alias m="make clean && make && maketop"
+alias gp="flush && git stash && git pull"
+startnode() { 
+./ls_router "$1" ./testtopo_initial_link_cost_files/testinitcosts"$1" log"$1".txt; 
+}
+alias start='startnode'
+alias rmlog="rm ../log*"
+downlink(){
+sudo iptables -D OUTPUT -s 10.1.1."$1" -d 10.1.1."$2" -j ACCEPT ; sudo iptables -D OUTPUT -s 10.1.1."$2" -d 10.1.1."$1" -j ACCEPT;
+}
+uplink(){
+sudo iptables -I OUTPUT -s 10.1.1."$1" -d 10.1.1."$2" -j ACCEPT ; sudo iptables -I OUTPUT -s 10.1.1."$2" -d 10.1.1."$1" -j ACCEPT;
+}
+alias up="uplink"
+alias down="downlink"

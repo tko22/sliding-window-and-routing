@@ -53,24 +53,28 @@ void sendPacketToNeighbor(int exceptID, char *buf)
 // 'ls'<2 ascii bytes> node 1<net order 2 byte signed> node 2<netorder 2byte signed> cost<net order 4 byte signed> seq_num<net order 4 byte signed> ttl<netorder 4 byte signed>
 void floodLSP(bool *connections, int seqNumMatrix[256][256])
 {
-    std::cout << "floodlsp Called" << endl;
+    std::cout << ":::: floodlsp Called ::::" << endl;
     int i;
     for (i = 0; i < 256; i++)
     {
-
+        // if there's a connection with i, flood with same sequence number
         if (i != globalMyID && connections[i] == true)
         {
-            std::cout << "floodlsp to node: " << i << "-- lsp: " << globalMyID << " -> " << i << endl;
-            // neighbor - broadcast
+            // i is a NEIGHBOR!! increment seq and flood to all neighbors
+            
+            // increment sqeuence number
+            seqNumMatrix[globalMyID][i]++;
+            int sequenceNumber = seqNumMatrix[globalMyID][i];
+            std::cout << "sending out lsp: " << globalMyID << " -> " << i << " w/ seq " << sequenceNumber << endl;
+
             short int node1 = htons(globalMyID);
             short int node2 = htons(i);
 
-            seqNumMatrix[globalMyID][i]++; // increment sqeuence number for self
-            int sequenceNumber = seqNumMatrix[globalMyID][i];
             int seqNum = htonl(sequenceNumber);
 
             int cost = htonl(costs[i]);
             int ttl = htonl(50);
+
             char sendBuf[2 + sizeof(short int) + sizeof(short int) + sizeof(int) + sizeof(int) + sizeof(int)];
             strcpy(sendBuf, "ls");
             memcpy(sendBuf + 2, &node1, sizeof(short int));
@@ -78,42 +82,52 @@ void floodLSP(bool *connections, int seqNumMatrix[256][256])
             memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int), &cost, sizeof(int));
             memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int) + sizeof(int), &seqNum, sizeof(int));
             memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int) + sizeof(int) + sizeof(int), &ttl, sizeof(int));
-            sendto(globalSocketUDP, sendBuf, sizeof(sendBuf), 0,
-                   (struct sockaddr *)&globalNodeAddrs[i], sizeof(globalNodeAddrs[i]));
+
+            // flood to all neighbors
+            for (int send = 0; send < 256; send++) {
+                if (send != globalMyID && connections[send] == true) {
+                    // neighbor - broadcast
+                    sendto(globalSocketUDP, sendBuf, sizeof(sendBuf), 0,
+                        (struct sockaddr *)&globalNodeAddrs[send], sizeof(globalNodeAddrs[send]));
+                }
+            }
         }
     }
 }
 
 void sendDownLSP(int seqNumMatrix[256][256], int downNode)
 {
-    // sends lsp to all neighbors about downNode with cost 0
-    std::cout << "sending down link lsp to all neighbors (cost 0) with " << downNode << endl;
+    // increment sequence number
+    seqNumMatrix[globalMyID][downNode]++;
+    int sequenceNumber = seqNumMatrix[globalMyID][downNode];
+    // sends lsp to all neighbors about downNode with cost 0, same sequence number
+    std::cout << "sending down link lsp to all neighbors (cost 0) with " << downNode << " seq - " << sequenceNumber << endl;
+    
+
+    short int node1 = htons(globalMyID);
+    short int node2 = htons(downNode);
+
+    int seqNum = htonl(sequenceNumber);
+    int ttl = htonl(50);
+
+    // Set Cost as 0
+    int cost = htonl(0);
+
+    char sendBuf[2 + sizeof(short int) + sizeof(short int) + sizeof(int) + sizeof(int) + sizeof(int)];
+    strcpy(sendBuf, "ls");
+    memcpy(sendBuf + 2, &node1, sizeof(short int));
+    memcpy(sendBuf + 2 + sizeof(short int), &node2, sizeof(short int));
+    memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int), &cost, sizeof(int));
+    memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int) + sizeof(int), &seqNum, sizeof(int));
+    memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int) + sizeof(int) + sizeof(int), &ttl, sizeof(int));
+
+    
     for (int i = 0; i < 256; i++)
     {
-
-        // if neighbor, send
+        // if neighbor, tell them about it
         if (i != globalMyID && connections[i] == true)
         {
-            std::cout << "floodlsp to node: " << i << "-- lsp: " << globalMyID << " -> " << i << "with cost 0" << endl;
-
-            short int node1 = htons(globalMyID);
-            short int node2 = htons(downNode);
-
-            seqNumMatrix[globalMyID][downNode]++; // increment sqeuence number for self
-            int sequenceNumber = seqNumMatrix[globalMyID][downNode];
-            int seqNum = htonl(sequenceNumber);
-            int ttl = htonl(50);
-
-            // Set Cost as 0
-            int cost = htonl(0);
-
-            char sendBuf[2 + sizeof(short int) + sizeof(short int) + sizeof(int) + sizeof(int) + sizeof(int)];
-            strcpy(sendBuf, "ls");
-            memcpy(sendBuf + 2, &node1, sizeof(short int));
-            memcpy(sendBuf + 2 + sizeof(short int), &node2, sizeof(short int));
-            memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int), &cost, sizeof(int));
-            memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int) + sizeof(int), &seqNum, sizeof(int));
-            memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int) + sizeof(int) + sizeof(int), &ttl, sizeof(int));
+            std::cout << "floodlsp to node: " << i << "-- lsp: " << globalMyID << " -> " << downNode << "with cost 0" << endl;
             sendto(globalSocketUDP, sendBuf, sizeof(sendBuf), 0,
                    (struct sockaddr *)&globalNodeAddrs[i], sizeof(globalNodeAddrs[i]));
         }
@@ -215,7 +229,7 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
     //          add to tentative with cost, nextHop
     while (tentativeTable.size() > 0)
     {
-        std::cout << "loop size: " << tentativeTable.size() << endl;
+        // std::cout << "loop size: " << tentativeTable.size() << endl;
         // 1) pick lowest cost in tentative
         int lowest_cost = tentativeTable[0].cost;
         int next_idx = 0; // tentative table index for next
@@ -276,8 +290,8 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
                 // if neighbor(i) not in tentative or confirmed, add to tentative
                 if (in_tent == false && confirmedMap.find(i) == confirmedMap.end())
                 {
-                    // std::cout << "i isn't in tentative" << endl;
-                    // std::cout << "add new neighbor i: " << i << endl;
+                    std::cout << "i isn't in tentative... ";
+                    std::cout << "add new neighbor i: " << i << endl;
                     // key doesnt exist - can't reach, not in tentative
                     // Add to tentative
                     // i is a neighbor

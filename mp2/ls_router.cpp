@@ -79,9 +79,9 @@ void lslistenForNeighbors()
                 std::chrono::duration<double> diff = timeNow - lastTimeHeardFrom[x];
 
                 // last time you heard from node x (which you already had a connection with) is more than 3 pings
-                if (diff.count() > 3 && connections[x] == true)
+                if (diff.count() > 6 && connections[x] == true)
                 {
-                    std::cout << "link with " << x << " is down..." << endl;
+                    std::cout << "\n" << "DOWN NODE ~~~~~~ link with " << x << " is down..." << endl;
                     // set connection with x to false, no longer neighbor
                     connections[x] = false;
                     // send LS flood of 0 - link doesn't not exist
@@ -92,7 +92,7 @@ void lslistenForNeighbors()
             // if new connection
             if (connections[heardFrom] == false)
             {
-                cout << globalMyID << " new connection with " << heardFrom << endl;
+                cout << "\n" << globalMyID << "!!! NEW CONNECTION with  " << heardFrom << "\n" << endl;
                 //this node can consider heardFrom to be directly connected to it; do any such logic now.
                 updateConnection(heardFrom, true);
 
@@ -113,7 +113,7 @@ void lslistenForNeighbors()
         //send format: 'send'<4 ASCII bytes>, destID<net order 2 byte signed>, <some ASCII message>
         if (!strncmp(recvBuf, "send", 4))
         {
-            std::cout << globalMyID << " -- Receive send -- " << endl;
+            std::cout << "\n" << globalMyID << " -- Receive send -- " << endl;
             //send the requested message to the requested destination node
             short int newdest;
             memcpy(&newdest, recvBuf + 4, sizeof(short int));
@@ -171,7 +171,7 @@ void lslistenForNeighbors()
         //'cost'<4 ASCII bytes>, destID<net order 2 byte signed> newCost<net order 4 byte signed>
         else if (!strncmp(recvBuf, "cost", 4))
         {
-            cout << globalMyID << "-- Receive cost -- " << endl;
+            cout << "\n"  << globalMyID << "-- Receive cost -- " << endl;
             //record the cost change (remember, the link might currently be down! in that case,
             //this is the new cost you should treat it as having once it comes back up.)
 
@@ -234,7 +234,7 @@ void lslistenForNeighbors()
         // link state packet flood
         else if (!strncmp(recvBuf, "ls", 2))
         {
-            cout << globalMyID << " -- Recieve LSP flood -- " << endl;
+            cout << "\n" << globalMyID << " -- Recieve LSP flood from " << heardFrom << " -- " << endl;
             short int node1c; // always the source
             memcpy(&node1c, recvBuf + 2, sizeof(short int));
             int node1 = (int)ntohs(node1c);
@@ -259,15 +259,13 @@ void lslistenForNeighbors()
             ttl = ntohl(ttl);
             ttl = ttl - 1; // subtract ttl
 
-            std::cout << "node1 " << node1 << endl;
-            std::cout << "node2 " << node2 << endl;
-            std::cout << "ttl " << ttl << endl;
+            std::cout << "node1 " << node1 << "-> node2 " << node2 << " -- with ttl " << ttl<< endl;
             std::cout << "cost " << cost << endl;
 
             std::cout << "ls seqNum " << seqNum << endl;
             cout << "curr sequ" << seqNumMatrix[node1][node2] << endl;
             // if (haven't seen or cost change ) and ttl is still ok
-            if ((seqNum >= seqNumMatrix[node1][node2] || adjMatrix[node1][node2] != cost) && ttl > 0)
+            if ((seqNum > seqNumMatrix[node1][node2]) && ttl > 0)
             {
                 // update sequence matrix
                 seqNumMatrix[node1][node2] = seqNum;
@@ -275,7 +273,7 @@ void lslistenForNeighbors()
                 adjMatrix[node1][node2] = cost; // set costs
                 adjMatrix[node2][node1] = cost; // set costs
 
-                // convert to netorder
+                // convert to netorder 
                 short int hNode1 = htons(node1);
                 short int hNode2 = htons(node2);
                 ttl = htonl(ttl);
@@ -298,7 +296,7 @@ void lslistenForNeighbors()
             }
             else
             {
-                std::cout << "discarding lsp..." << endl;
+                std::cout << "... DISCARDING lsp..." << endl;
             }
             std::cout << globalMyID << " -- Confirmed table";
             printMap(confirmedMap);
@@ -312,7 +310,7 @@ void lslistenForNeighbors()
         //forward format: 'forward'<7 ASCII bytes>, destID<net order 2 byte signed>, <some ASCII message>
         else if (!strncmp(recvBuf, "forward", 7))
         {
-            std::cout << globalMyID << " -- Receive forward -- " << endl;
+            std::cout << "\n" << globalMyID << " -- Receive forward -- " << endl;
 
             // dest
             short int newdest;
@@ -327,7 +325,7 @@ void lslistenForNeighbors()
                 message[i - 9] = recvBuf[i];
             }
             message[bytesRecvd - 9] = '\0';
-            cout << "message: " << message << endl;
+            cout << "message for " << dest << " : " << message << endl;
 
             // decide whether to forward or not
             if (dest == globalMyID)
