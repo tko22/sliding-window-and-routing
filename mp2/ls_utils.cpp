@@ -22,6 +22,38 @@ struct packetArg
     char *buf;
 };
 
+void lswriteSendLog(char *theLogFile, int dest, int nexthop,
+                  char *message) {
+    char logLine[LOG_LINE_LENGTH];
+    memset(logLine, '\0', LOG_LINE_LENGTH);
+    sprintf(logLine, "sending packet dest %d nexthop %d message %s\n", dest,
+            nexthop, message);
+    writeToLog(theLogFile, logLine);
+}
+
+void lswriteForwardLog(char *theLogFile, int dest, int nexthop,
+                     char *message) {
+    char logLine[LOG_LINE_LENGTH];
+    memset(logLine, '\0', LOG_LINE_LENGTH);
+    sprintf(logLine, "forward packet dest %d nexthop %d message %s\n", dest,
+            nexthop, message);
+    writeToLog(theLogFile, logLine);
+}
+
+void lswriteReceiveLog(char *theLogFile, char *message) {
+    char logLine[LOG_LINE_LENGTH];
+    memset(logLine, '\0', LOG_LINE_LENGTH);
+    sprintf(logLine, "receive packet message %s\n", message);
+    writeToLog(theLogFile, logLine);
+}
+
+void lswriteUnreachableLog(char *theLogFile, int dest) {
+    char logLine[LOG_LINE_LENGTH];
+    memset(logLine, '\0', LOG_LINE_LENGTH);
+    sprintf(logLine, "unreachable dest %d\n", dest);
+    writeToLog(theLogFile, logLine);
+}
+
 void setupAdjMatrix(int matrix[256][256], bool *connections, unsigned int *costs, int globalMyID)
 {
     int i;
