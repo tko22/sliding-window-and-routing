@@ -106,7 +106,7 @@ void checkUpdateTime() {
 
     if (now.tv_sec >= updateTime) {
         updateTime = now.tv_sec + UPDATE_FREQ;
-        fprintf(stderr, "Node %d - Sending dist updates...\n", globalMyID);
+        // fprintf(stderr, "Node %d - Sending dist updates...\n", globalMyID);
         for (int i = 0; i < NUM_NODES; ++i) {
             if (dvTable[i].dist != -1) {
                 sendDistVecUpdate(i, dvTable[i].dist);
@@ -139,7 +139,8 @@ void forwardMessage(int16_t nodeID, char *msg, int length, bool originate) {
     strcpy(sendBuf + 4 + sizeof(int16_t), msg);
 
     if (dvTable[nodeID].nextHop != -1) {
-        sendMessage(dvTable[nodeID].nextHop, msg, length + 6);
+        // fprintf(stderr, "Node %d - Forwarding message to %d (%d) - %s (%d)\n", globalMyID, nodeID, dvTable[nodeID].nextHop, msg, length);
+        sendMessage(dvTable[nodeID].nextHop, sendBuf, length + 6);
 
         if (originate) {
             writeSendLog(logFile, nodeID, dvTable[nodeID].nextHop, msg);
@@ -244,6 +245,8 @@ void vecListenForNeighbors() {
             int16_t destNode = ntohs(*((int16_t *) &recvBuf[4]));
             recvBuf[bytesRecvd] = '\0';
 
+            // fprintf(stderr, "Node %d - Received send command: %d - %s\n", globalMyID, destNode, recvBuf + 6);
+
             forwardMessage(destNode, recvBuf + 6, bytesRecvd - 5, true);
         }
         //'cost'<4 ASCII bytes>, destID<net order 2 byte signed> newCost<net
@@ -251,6 +254,8 @@ void vecListenForNeighbors() {
         else if (!strncmp(recvBuf, "cost", 4)) {
             int16_t nodeID = ntohs(*((int16_t *) &recvBuf[4]));
             int32_t cost = ntohl(*((int32_t *) &recvBuf[6]));
+
+            // fprintf(stderr, "Node %d - Received cost update command: %d - %d\n", globalMyID, nodeID, cost);
 
             updateCost(nodeID, cost);
 
@@ -262,6 +267,8 @@ void vecListenForNeighbors() {
         // message>
         else if (!strncmp(recvBuf, "mesg", 4)) {
             int16_t destNode = *((int16_t *) &recvBuf[4]);
+
+            fprintf(stderr, "Node %d - Received message from %d: %s\n", globalMyID, heardFrom, recvBuf + 6);
 
             if (destNode == globalMyID) {
                 writeReceiveLog(logFile, recvBuf + 6);
@@ -373,6 +380,7 @@ int main(int argc, char **argv) {
     }
 
     logFile = argv[3];
+    remove(logFile);
 
     // start threads... feel free to add your own, and to remove the
     // provided ones.
