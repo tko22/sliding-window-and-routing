@@ -47,6 +47,8 @@ char *theLogFile;
 
 std::map<int, Entry> confirmedMap;
 
+struct timeval floodInterval;
+
 void lslistenForNeighbors()
 {
     char fromAddr[100];
@@ -89,6 +91,13 @@ void lslistenForNeighbors()
                     sendDownLSP(seqNumMatrix, x);
                 }
             }
+
+            if (now.tv_sec - floodInterval.tv_sec > 7) {
+                // flood periodically
+                std::cout << "flooding periodically" << endl;
+                gettimeofday(&floodInterval, 0);
+                floodLSP(connections, seqNumMatrix);
+            } 
 
             // if new connection
             if (connections[heardFrom] == false)
@@ -262,9 +271,8 @@ void lslistenForNeighbors()
 
             std::cout << "node1 " << node1 << "-> node2 " << node2 << " -- with ttl " << ttl<< endl;
             std::cout << "cost " << cost << endl;
-
             std::cout << "ls seqNum " << seqNum << endl;
-            cout << "curr sequ" << seqNumMatrix[node1][node2] << endl;
+            
             // if (haven't seen or cost change ) and ttl is still ok
             if ((seqNum > seqNumMatrix[node1][node2]) && ttl > 0)
             {
@@ -405,6 +413,9 @@ int main(int argc, char **argv)
         globalNodeAddrs[i].sin_port = htons(7777);
         inet_pton(AF_INET, tempaddr, &globalNodeAddrs[i].sin_addr);
     }
+    
+    // initialize floodInterval for periodic flooding
+    gettimeofday(&floodInterval, 0);
 
     // read and parse initial costs file. default to cost 1 if no entry for a node. file may be empty.
     FILE *fp;

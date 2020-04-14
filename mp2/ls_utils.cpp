@@ -268,6 +268,8 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
 
         for (i = 1; i < tentativeTable.size(); i++)
         {
+            // inherently picks the lowest id, if costs are the same 
+            // because loop goes from 1 -> 255, and < control flow
             if (tentativeTable[i].cost < lowest_cost)
             {
                 lowest_cost = tentativeTable[i].cost;
@@ -292,12 +294,14 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
         // add it's neighbors
         for (i = 0; i < 256; i++)
         {
-            if (adjMatrix[nextID][i] > 0)
+            // can't be the node itself, since it started it
+            // prevents neighbor of current node to add current node as a neighbor in the tentative list
+            if (adjMatrix[nextID][i] > 0 && i != globalMyID)
             {
                 // i is neighbor to Next
 
                 //Cost(me, Neighbor - i) = Cost(me, Next) + Cost(Next, Neighbor - i)
-                std::cout << "i: " << i << " is neighbor to nextID:" << nextID << endl;
+                // std::cout << "i: " << i << " is neighbor to nextID:" << nextID << endl;
                 int cost = nextEntry.cost + adjMatrix[nextID][i];
                 // std::cout << "new cost: " << cost << endl;
                 bool in_tent = false;
@@ -309,11 +313,65 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
                         // std::cout << "found neighbor in tentative, check update cost" << endl;
                         in_tent = true; // for next check, if not in tentative and confirmed
                         // if new cost is lower than current tentative cost
-                        // std::cout << "tentative table cost for x: " << x << " is: " << tentativeTable[x].cost << endl;
+                        std::cout << "tentative table cost for i: " << i << " is: " << tentativeTable[x].cost << endl;
                         if (tentativeTable[x].cost > cost)
                         {
                             tentativeTable[x].cost = cost;
                             tentativeTable[x].nexthop = nextHop;
+                        }
+                        // tie breaking check, there's another previous path that has the same cost
+                        else if (tentativeTable[x].cost == cost) {
+                            // if path cost is tied with another path, choose the path whose last node before the destination has the smaller ID.
+                            // So, find all neighbors of i that is confirmed besides nextID (last node before reaching i) 
+                            // and see which neighbor to i, is the last node before the destination with the same cost
+                            // to do so, get its cost and add the edge to it adjMatrix[nextID][i], if it exists
+                            std::vector<int> tieNeighborVec;
+                            cout << "cost for i " << i << "is the same= " << tentativeTable[x].cost << "... checking" << endl;
+                            for (int k = 0; k < 256; k++) {
+
+                                // check if valid neighbor
+                                // 1) not nextID, which is already a neighbor and the path to it through nextID is the new path
+                                // 2) it is a neighbor, if there's a lsp given to it
+                                // 3) was a previous path, so it has to be in confirmedMap
+                                if (k != nextID && adjMatrix[i][k] > 0 && confirmedMap.find(k) != confirmedMap.end()){
+                                    // check if path cost through this valid neighbor is the same
+                                    // if so, thats an alternative path
+                                    int path_cost = confirmedMap[k].cost + adjMatrix[i][k];
+                                    if (path_cost == cost) {
+                                        cout << "other neighbor node  " << k << endl;
+                                        tieNeighborVec.push_back(k);        
+                                    }
+                                }
+                            }
+
+                            // vector can't be empty, here
+                            if (tieNeighborVec.empty()){
+                                break;
+                            }
+                            int lowestNodeWithSameCost = tieNeighborVec[0];
+                            
+                            // have neighbors now so check the path through that neighbor
+                            for (int j = 1; j < tieNeighborVec.size(); j++) {
+                                if (tieNeighborVec[j] < lowestNodeWithSameCost) {
+                                    lowestNodeWithSameCost = tieNeighborVec[j];
+                                }
+                            }
+
+                            cout << "lowest node with the same cost is  " << lowestNodeWithSameCost << " with next hop: " << confirmedMap[lowestNodeWithSameCost].nexthop << endl;
+
+                            // now check if the nextID is smaller than lowestNodeWithSameCost
+                            // if so, use that path, change the next hop to the lowest neighbors nexthop
+                            // no need to change cost
+                            if (nextID < lowestNodeWithSameCost) {
+                                tentativeTable[x].nexthop = nextHop;
+                            }
+                            // but also check wehtehr the lowestNodeWithSameCost path is the same
+                            // what if there was a shorter path that wasnt known? maybe.. I guess
+                            // just check just in case
+                            else if (lowestNodeWithSameCost != globalMyID && tentativeTable[x].nexthop != confirmedMap[lowestNodeWithSameCost].nexthop) {
+                                tentativeTable[x].nexthop = confirmedMap[lowestNodeWithSameCost].nexthop;
+                            }
+                            
                         }
                         break;
                     }
