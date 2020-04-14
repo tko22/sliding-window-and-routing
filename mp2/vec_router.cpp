@@ -213,7 +213,7 @@ void checkHeartbeats() {
             now.tv_sec - globalLastHeartbeat[i].tv_sec >= HEARTBEAT_TIMEOUT) {
             connections[i] = false;
 
-            fprintf(stderr, "Node %d - Connection to Node %d lost", globalMyID,
+            fprintf(stderr, "Node %d - Connection to Node %d lost\n", globalMyID,
                     i);
             for (int j = 0; j < NUM_NODES; ++j) {
                 // Bring down connections to all nodes routed through i
@@ -378,22 +378,21 @@ int main(int argc, char **argv) {
     if (fp == NULL) {
         fprintf(stderr, "Node %d - Invalid initial costs file %s\n", globalMyID,
                 argv[2]);
-        return -1;
+    } else {
+        while (fgets(buff, buffLen, fp)) {
+            costPtr = strchr(buff, ' ');
+            *costPtr = '\0';
+            costPtr++;
+
+            updateCost(atoi(buff), atoi(costPtr));
+        }
+
+        costs[globalMyID] = 0;
+        dvTable[globalMyID].nextHop = globalMyID;
+        dvTable[globalMyID].dist = 0;
+
+        fclose(fp);
     }
-
-    while (fgets(buff, buffLen, fp)) {
-        costPtr = strchr(buff, ' ');
-        *costPtr = '\0';
-        costPtr++;
-
-        updateCost(atoi(buff), atoi(costPtr));
-    }
-
-    costs[globalMyID] = 0;
-    dvTable[globalMyID].nextHop = globalMyID;
-    dvTable[globalMyID].dist = 0;
-
-    fclose(fp);
 
     // socket() and bind() our socket. We will do all sendto()ing and
     // recvfrom()ing on this one.
