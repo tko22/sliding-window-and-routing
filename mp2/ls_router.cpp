@@ -8,7 +8,6 @@
 #include <chrono>
 #include <time.h>
 
-
 using namespace std;
 
 #include "monitor_neighbors.cpp"
@@ -75,16 +74,16 @@ void lslistenForNeighbors()
             heardFrom = atoi(
                 strchr(strchr(strchr(fromAddr, '.') + 1, '.') + 1, '.') + 1);
 
-
             timeval now;
             gettimeofday(&now, 0);
             // if any connections are different by 3 pings then it is broken, send ls
             for (int x = 0; x < 256; x++)
             {
-                // last time you heard from node x (which you already had a connection with) is more than 2 seconds
-                if ((now.tv_sec - globalLastHeartbeat[x].tv_sec) >= 1.5 && connections[x] == true)
+                // last time you heard from node x (which you already had a connection with) is more than 1 seconds
+                if ((now.tv_sec - globalLastHeartbeat[x].tv_sec) >= 1 && connections[x] == true)
                 {
-                    std::cout << "\n" << "DOWN NODE ~~~~~~ link with " << x << " is down..." << endl;
+                    std::cout << "\n"
+                              << "DOWN NODE ~~~~~~ link with " << x << " is down..." << endl;
                     // set connection with x to false, no longer neighbor
                     connections[x] = false;
                     // send LS flood of 0 - link doesn't not exist
@@ -92,17 +91,20 @@ void lslistenForNeighbors()
                 }
             }
 
-            if (now.tv_sec - floodInterval.tv_sec > 7) {
+            if (now.tv_sec - floodInterval.tv_sec > 5)
+            {
                 // flood periodically
                 std::cout << "flooding periodically" << endl;
                 gettimeofday(&floodInterval, 0);
                 floodLSP(connections, seqNumMatrix);
-            } 
+            }
 
             // if new connection
             if (connections[heardFrom] == false)
             {
-                cout << "\n" << globalMyID << "!!! NEW CONNECTION with  " << heardFrom << "\n" << endl;
+                cout << "\n"
+                     << globalMyID << "!!! NEW CONNECTION with  " << heardFrom << "\n"
+                     << endl;
                 //this node can consider heardFrom to be directly connected to it; do any such logic now.
                 updateConnection(heardFrom, true);
 
@@ -123,7 +125,8 @@ void lslistenForNeighbors()
         //send format: 'send'<4 ASCII bytes>, destID<net order 2 byte signed>, <some ASCII message>
         if (!strncmp(recvBuf, "send", 4))
         {
-            std::cout << "\n" << globalMyID << " -- Receive send -- " << endl;
+            std::cout << "\n"
+                      << globalMyID << " -- Receive send -- " << endl;
             //send the requested message to the requested destination node
             short int newdest;
             memcpy(&newdest, recvBuf + 4, sizeof(short int));
@@ -181,7 +184,8 @@ void lslistenForNeighbors()
         //'cost'<4 ASCII bytes>, destID<net order 2 byte signed> newCost<net order 4 byte signed>
         else if (!strncmp(recvBuf, "cost", 4))
         {
-            cout << "\n"  << globalMyID << "-- Receive cost -- " << endl;
+            cout << "\n"
+                 << globalMyID << "-- Receive cost -- " << endl;
             //record the cost change (remember, the link might currently be down! in that case,
             //this is the new cost you should treat it as having once it comes back up.)
 
@@ -244,7 +248,8 @@ void lslistenForNeighbors()
         // link state packet flood
         else if (!strncmp(recvBuf, "ls", 2))
         {
-            cout << "\n" << globalMyID << " -- Recieve LSP flood from " << heardFrom << " -- " << endl;
+            cout << "\n"
+                 << globalMyID << " -- Recieve LSP flood from " << heardFrom << " -- " << endl;
             short int node1c; // always the source
             memcpy(&node1c, recvBuf + 2, sizeof(short int));
             int node1 = (int)ntohs(node1c);
@@ -269,10 +274,10 @@ void lslistenForNeighbors()
             ttl = ntohl(ttl);
             ttl = ttl - 1; // subtract ttl
 
-            std::cout << "node1 " << node1 << "-> node2 " << node2 << " -- with ttl " << ttl<< endl;
+            std::cout << "node1 " << node1 << "-> node2 " << node2 << " -- with ttl " << ttl << endl;
             std::cout << "cost " << cost << endl;
             std::cout << "ls seqNum " << seqNum << endl;
-            
+
             // if (haven't seen or cost change ) and ttl is still ok
             if ((seqNum > seqNumMatrix[node1][node2]) && ttl > 0)
             {
@@ -319,7 +324,8 @@ void lslistenForNeighbors()
         //forward format: 'forward'<7 ASCII bytes>, destID<net order 2 byte signed>, <some ASCII message>
         else if (!strncmp(recvBuf, "forward", 7))
         {
-            std::cout << "\n" << globalMyID << " -- Receive forward -- " << endl;
+            std::cout << "\n"
+                      << globalMyID << " -- Receive forward -- " << endl;
 
             // dest
             short int newdest;
@@ -413,7 +419,7 @@ int main(int argc, char **argv)
         globalNodeAddrs[i].sin_port = htons(7777);
         inet_pton(AF_INET, tempaddr, &globalNodeAddrs[i].sin_addr);
     }
-    
+
     // initialize floodInterval for periodic flooding
     gettimeofday(&floodInterval, 0);
 
