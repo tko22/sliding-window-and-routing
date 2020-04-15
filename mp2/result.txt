@@ -702,3 +702,16 @@ Group Status: Group of 2
 ===================== End =====================
 
 
+=============== Auto-grader Test ===============
+Code Pull Time: 2020-04-15 11:59:47.621070
+Test Commit ID: a1208b8fd145e6cd46714a01a11bd9ceca892ae2
+Group Status: Group of 2
+----------------- Test Results ----------------
+-100	Compile: Failed.
+
+-0	Late Penalty: Last commit happens before due.
+-------------------- Score --------------------
+0/100
+===================== End =====================
+
+
