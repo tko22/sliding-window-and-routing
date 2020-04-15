@@ -401,6 +401,9 @@ int main(int argc, char **argv)
     }
 
     theLogFile = argv[3];
+    FILE *f;
+    f = fopen(theLogFile, "a");
+    fclose(f);
 
     //initialization: get this process's node ID, record what time it is,
     //and set up our sockaddr_in's for sending to the other nodes.
