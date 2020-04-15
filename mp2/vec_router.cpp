@@ -19,7 +19,7 @@
 #define MESSAGE_BUF_SIZE 120
 // TODO: Verify this limit (check with line topology)
 #define INFINITY_LIMIT 1000
-#define UPDATE_FREQ 2
+#define UPDATE_FREQ 1
 
 typedef struct Entry {
     int32_t dist = -1;
@@ -416,6 +416,8 @@ int main(int argc, char **argv) {
 
     logFile = argv[3];
     remove(logFile);
+    fp = fopen(logFile, "a");
+    fclose(fp);
 
     // start threads... feel free to add your own, and to remove the
     // provided ones.
