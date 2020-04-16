@@ -192,7 +192,7 @@ void updateDistVec(int16_t nodeID, int32_t dist, int16_t nextHop,
             dvTable[nodeID].nextHop = nextHop;
             dvTable[nodeID].dist = dist;
 
-            if (globalMyID == 0) {
+            if (globalMyID == 1) {
                 printDVTable();
             }
 
@@ -317,11 +317,7 @@ void vecListenForNeighbors() {
 
                 if (dvTable[heardFrom].dist >= 0) {
                     if (cost != -1) {
-                        cost += dvTable[heardFrom].dist;
-                    }
-
-                    if (nodeID == heardFrom) {
-                        cost = costs[heardFrom];
+                        cost += costs[heardFrom];
                     }
 
                     updateDistVec(nodeID, cost, heardFrom, 3);
