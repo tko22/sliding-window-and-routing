@@ -153,6 +153,7 @@ void forwardMessage(int16_t nodeID, char *msg, int length, bool originate) {
             writeForwardLog(logFile, nodeID, dvTable[nodeID].nextHop, msg);
         }
     } else {
+        fprintf(stderr, "Node %d - Could not reach node %d", globalMyID, nodeID);
         writeUnreachableLog(logFile, nodeID);
     }
 }
@@ -162,30 +163,33 @@ void forwardMessage(int16_t nodeID, char *msg, int length, bool originate) {
 void updateDistVec(int16_t nodeID, int32_t dist, int16_t nextHop,
                    int callerID) {
     if (nodeID >= 0 && nodeID < NUM_NODES) {
-        // Check to make sure that the update is necessary
-        // Cost to reach self is always 0
-        if (nodeID != globalMyID &&
-            // Update if found lower cost path
-            ((dist != -1 && dist < dvTable[nodeID].dist) ||
-             // Update if found same cost path with lower next hop ID
-             (nextHop < dvTable[nodeID].nextHop &&
-              dvTable[nodeID].dist == dist) ||
-             // Update if connection to next hop is lost
-             (!connections[dvTable[nodeID].nextHop] && nextHop == -1) ||
-             // Update if dist has changed for the existing next hop...
-             (dvTable[nodeID].dist != dist &&
-                  (dvTable[nodeID].nextHop == nextHop) ||
-              // or if dist was infinity
-              dvTable[nodeID].dist == -1))) {
-            if (dist > INFINITY_LIMIT) {
-                dist = -1;
-            }
+        // If distance is over limit, set to infinity
+        if (dist > INFINITY_LIMIT) {
+            dist = -1;
+        }
 
+        // Check to make sure that the update is necessary
+        // Update if found lower cost path
+        bool lowerDist = dist != -1 && dist < dvTable[nodeID].dist;
+        // Update if found same cost path with lower next hop ID
+        bool lowerID = nextHop < dvTable[nodeID].nextHop && dvTable[nodeID].dist == dist;
+        // Update if connection to next hop is lost
+        bool connectionLost = dvTable[nodeID].nextHop != -1 && !connections[dvTable[nodeID].nextHop] && nextHop == -1;
+        // Update if dist has changed for the existing next hop or if dist is infinity
+        bool distChanged = dvTable[nodeID].dist != dist && (dvTable[nodeID].nextHop == nextHop || dvTable[nodeID].dist == -1);
+
+        // If distance is infinity, no next hop
+        if (dist == -1) {
+            nextHop = -1;
+        }
+
+        // Cost to reach self is always 0
+        if (nodeID != globalMyID && (lowerDist || lowerID || connectionLost || distChanged)) {
             if (dvTable[nodeID].dist != -1 && dist > dvTable[nodeID].dist) {
                 fprintf(
                     stderr,
-                    "Node %d - Update dist %d (%d, %d, %d) -> (%d, %d, %d)\n",
-                    globalMyID, callerID, nodeID, dvTable[nodeID].dist,
+                    "Node %d - Update dist %d[%d, %d, %d, %d] (%d, %d, %d) -> (%d, %d, %d)\n",
+                    globalMyID, lowerDist, lowerID, connectionLost, distChanged, callerID, nodeID, dvTable[nodeID].dist,
                     dvTable[nodeID].nextHop, nodeID, dist, nextHop);
             }
             // Update Table
