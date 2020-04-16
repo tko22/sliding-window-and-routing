@@ -715,3 +715,44 @@ Group Status: Group of 2
 ===================== End =====================
 
 
+=============== Auto-grader Test ===============
+Code Pull Time: 2020-04-15 15:59:09.728187
+Test Commit ID: 7715b431bb007bbb24f710cc30570bde48ce0e34
+Group Status: Group of 2
+----------------- Test Results ----------------
+-100	Compile: Failed.
+
+-0	Late Penalty: Last commit happens before due.
+-------------------- Score --------------------
+0/100
+===================== End =====================
+
+
+=============== Auto-grader Test ===============
+Code Pull Time: 2020-04-15 19:55:44.920065
+Test Commit ID: 7715b431bb007bbb24f710cc30570bde48ce0e34
+Group Status: Group of 2
+----------------- Test Results ----------------
+-0	Compile: Ok
+-0	Test Case 1: LS Sending messages over 3-node topology succeeded!
+-0	Test Case 2: LS Shortest path in example topology succeeded!
+-5	Test Case 3: LS Shortest path (0->77, 77->0, 23->50) in 8x8 grid topology failed. 
+-10	Test Case 4: LS Switching to better path when available failed. 
+-10	Test Case 5: LS Falling back to worse path failed.
+-0	Test Case 6: LS Reporting unreachable after partition succeeded!
+-0	Test Case 7: LS Healing after partition succeeded!
+-5	Test Case 8: LS with lots of link up/downs failed.
+-0	Test Case 9: DV/PV Sending messages over 3-node topology succeeded!
+-0	Test Case 10: DV/PV Shortest path in example topology succeeded!
+-0	Test Case 11: DV/PV Shortest path in 8x8 grid topology succeeded!
+-0	Test Case 12: DV/PV Switching to better path when available succeeded!
+-10	Test Case 13: DV/PV Falling back to worse path failed.
+-7.5	Test Case 14: DV/PV Reporting unreachable after partition failed.
+-5	Test Case 15: DV/PV Healing after partition failed.
+-5	Test Case 16: DV/PV with lots of link up/downs failed.
+-0	Late Penalty: Last commit happens before due.
+-------------------- Score --------------------
+42.5/100
+===================== End =====================
+
+
