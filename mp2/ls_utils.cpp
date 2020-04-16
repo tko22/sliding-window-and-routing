@@ -23,7 +23,8 @@ struct packetArg
 };
 
 void lswriteSendLog(char *theLogFile, int dest, int nexthop,
-                  char *message) {
+                    char *message)
+{
     char logLine[LOG_LINE_LENGTH];
     memset(logLine, '\0', LOG_LINE_LENGTH);
     sprintf(logLine, "sending packet dest %d nexthop %d message %s\n", dest,
@@ -32,7 +33,8 @@ void lswriteSendLog(char *theLogFile, int dest, int nexthop,
 }
 
 void lswriteForwardLog(char *theLogFile, int dest, int nexthop,
-                     char *message) {
+                       char *message)
+{
     char logLine[LOG_LINE_LENGTH];
     memset(logLine, '\0', LOG_LINE_LENGTH);
     sprintf(logLine, "forward packet dest %d nexthop %d message %s\n", dest,
@@ -40,14 +42,16 @@ void lswriteForwardLog(char *theLogFile, int dest, int nexthop,
     writeToLog(theLogFile, logLine);
 }
 
-void lswriteReceiveLog(char *theLogFile, char *message) {
+void lswriteReceiveLog(char *theLogFile, char *message)
+{
     char logLine[LOG_LINE_LENGTH];
     memset(logLine, '\0', LOG_LINE_LENGTH);
     sprintf(logLine, "receive packet message %s\n", message);
     writeToLog(theLogFile, logLine);
 }
 
-void lswriteUnreachableLog(char *theLogFile, int dest) {
+void lswriteUnreachableLog(char *theLogFile, int dest)
+{
     char logLine[LOG_LINE_LENGTH];
     memset(logLine, '\0', LOG_LINE_LENGTH);
     sprintf(logLine, "unreachable dest %d\n", dest);
@@ -93,7 +97,7 @@ void floodLSP(bool *connections, int seqNumMatrix[256][256])
         if (i != globalMyID && connections[i] == true)
         {
             // i is a NEIGHBOR!! increment seq and flood to all neighbors
-            
+
             // increment sqeuence number
             seqNumMatrix[globalMyID][i]++;
             int sequenceNumber = seqNumMatrix[globalMyID][i];
@@ -116,11 +120,13 @@ void floodLSP(bool *connections, int seqNumMatrix[256][256])
             memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int) + sizeof(int) + sizeof(int), &ttl, sizeof(int));
 
             // flood to all neighbors
-            for (int send = 0; send < 256; send++) {
-                if (send != globalMyID && connections[send] == true) {
+            for (int send = 0; send < 256; send++)
+            {
+                if (send != globalMyID && connections[send] == true)
+                {
                     // neighbor - broadcast
                     sendto(globalSocketUDP, sendBuf, sizeof(sendBuf), 0,
-                        (struct sockaddr *)&globalNodeAddrs[send], sizeof(globalNodeAddrs[send]));
+                           (struct sockaddr *)&globalNodeAddrs[send], sizeof(globalNodeAddrs[send]));
                 }
             }
         }
@@ -134,7 +140,6 @@ void sendDownLSP(int seqNumMatrix[256][256], int downNode)
     int sequenceNumber = seqNumMatrix[globalMyID][downNode];
     // sends lsp to all neighbors about downNode with cost 0, same sequence number
     std::cout << "sending down link lsp to all neighbors (cost 0) with " << downNode << " seq - " << sequenceNumber << endl;
-    
 
     short int node1 = htons(globalMyID);
     short int node2 = htons(downNode);
@@ -153,7 +158,6 @@ void sendDownLSP(int seqNumMatrix[256][256], int downNode)
     memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int) + sizeof(int), &seqNum, sizeof(int));
     memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int) + sizeof(int) + sizeof(int), &ttl, sizeof(int));
 
-    
     for (int i = 0; i < 256; i++)
     {
         // if neighbor, tell them about it
@@ -268,7 +272,7 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
 
         for (i = 1; i < tentativeTable.size(); i++)
         {
-            // inherently picks the lowest id, if costs are the same 
+            // inherently picks the lowest id, if costs are the same
             // because loop goes from 1 -> 255, and < control flow
             if (tentativeTable[i].cost < lowest_cost)
             {
@@ -296,7 +300,7 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
         {
             // can't be the node itself, since it started it
             // prevents neighbor of current node to add current node as a neighbor in the tentative list
-            if (adjMatrix[nextID][i] > 0 && i != globalMyID)
+            if (adjMatrix[nextID][i] > 0)
             {
                 // i is neighbor to Next
 
@@ -320,39 +324,46 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
                             tentativeTable[x].nexthop = nextHop;
                         }
                         // tie breaking check, there's another previous path that has the same cost
-                        else if (tentativeTable[x].cost == cost) {
+                        else if (tentativeTable[x].cost == cost)
+                        {
                             // if path cost is tied with another path, choose the path whose last node before the destination has the smaller ID.
-                            // So, find all neighbors of i that is confirmed besides nextID (last node before reaching i) 
+                            // So, find all neighbors of i that is confirmed besides nextID (last node before reaching i)
                             // and see which neighbor to i, is the last node before the destination with the same cost
                             // to do so, get its cost and add the edge to it adjMatrix[nextID][i], if it exists
                             std::vector<int> tieNeighborVec;
                             cout << "cost for i " << i << "is the same= " << tentativeTable[x].cost << "... checking" << endl;
-                            for (int k = 0; k < 256; k++) {
+                            for (int k = 0; k < 256; k++)
+                            {
 
                                 // check if valid neighbor
                                 // 1) not nextID, which is already a neighbor and the path to it through nextID is the new path
                                 // 2) it is a neighbor, if there's a lsp given to it
                                 // 3) was a previous path, so it has to be in confirmedMap
-                                if (k != nextID && adjMatrix[i][k] > 0 && confirmedMap.find(k) != confirmedMap.end()){
+                                if (k != nextID && adjMatrix[i][k] > 0 && confirmedMap.find(k) != confirmedMap.end())
+                                {
                                     // check if path cost through this valid neighbor is the same
                                     // if so, thats an alternative path
                                     int path_cost = confirmedMap[k].cost + adjMatrix[i][k];
-                                    if (path_cost == cost) {
+                                    if (path_cost == cost)
+                                    {
                                         cout << "other neighbor node  " << k << endl;
-                                        tieNeighborVec.push_back(k);        
+                                        tieNeighborVec.push_back(k);
                                     }
                                 }
                             }
 
                             // vector can't be empty, here
-                            if (tieNeighborVec.empty()){
+                            if (tieNeighborVec.empty())
+                            {
                                 break;
                             }
                             int lowestNodeWithSameCost = tieNeighborVec[0];
-                            
+
                             // have neighbors now so check the path through that neighbor
-                            for (int j = 1; j < tieNeighborVec.size(); j++) {
-                                if (tieNeighborVec[j] < lowestNodeWithSameCost) {
+                            for (int j = 1; j < tieNeighborVec.size(); j++)
+                            {
+                                if (tieNeighborVec[j] < lowestNodeWithSameCost)
+                                {
                                     lowestNodeWithSameCost = tieNeighborVec[j];
                                 }
                             }
@@ -362,16 +373,17 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
                             // now check if the nextID is smaller than lowestNodeWithSameCost
                             // if so, use that path, change the next hop to the lowest neighbors nexthop
                             // no need to change cost
-                            if (nextID < lowestNodeWithSameCost) {
+                            if (nextID < lowestNodeWithSameCost)
+                            {
                                 tentativeTable[x].nexthop = nextHop;
                             }
                             // but also check wehtehr the lowestNodeWithSameCost path is the same
                             // what if there was a shorter path that wasnt known? maybe.. I guess
                             // just check just in case
-                            else if (lowestNodeWithSameCost != globalMyID && tentativeTable[x].nexthop != confirmedMap[lowestNodeWithSameCost].nexthop) {
+                            else if (lowestNodeWithSameCost != globalMyID && tentativeTable[x].nexthop != confirmedMap[lowestNodeWithSameCost].nexthop)
+                            {
                                 tentativeTable[x].nexthop = confirmedMap[lowestNodeWithSameCost].nexthop;
                             }
-                            
                         }
                         break;
                     }
