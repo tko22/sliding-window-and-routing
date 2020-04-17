@@ -209,8 +209,8 @@ void lslistenForNeighbors()
             {
                 std::cout << "going to flood because cost change for neighbor" << endl;
                 // update adjMatrix, since link exists
-                adjMatrix[globalMyID][heardFrom] = cost;
-                adjMatrix[heardFrom][globalMyID] = cost;
+                adjMatrix[globalMyID][dest] = cost;
+                adjMatrix[dest][globalMyID] = cost;
 
                 // convert to netorder
                 short int selfID = htons(globalMyID);
@@ -288,6 +288,18 @@ void lslistenForNeighbors()
 
                 adjMatrix[node1][node2] = cost; // set costs
                 adjMatrix[node2][node1] = cost; // set costs
+
+                // update cost in cost table if it's my id
+                if (node2 == globalMyID && costs[node1] != cost)
+                {
+                    cout << "node 2 is self... updating cost to node1 " << node1 << " with cost" << cost << endl;
+                    updateCost(node1, cost);
+                }
+                else if (node1 == globalMyID && costs[node2] != cost)
+                {
+                    cout << "node 1 is self... updating cost to node2 " << node2 << "with cost " << cost << endl;
+                    updateCost(node2, cost);
+                }
 
                 // convert to netorder 
                 short int hNode1 = htons(node1);

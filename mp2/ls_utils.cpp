@@ -384,6 +384,7 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
                             // just check just in case
                             else if (lowestNodeWithSameCost != globalMyID && tentativeTable[x].nexthop != confirmedMap[lowestNodeWithSameCost].nexthop)
                             {
+                                cout << "CHANGING NEXT HOP TO LOWEST NODE WITH SAME COST NOT GLOBAL ID - lowestnodewithsame cost : " << lowestNodeWithSameCost << endl;
                                 tentativeTable[x].nexthop = confirmedMap[lowestNodeWithSameCost].nexthop;
                             }
                         }
