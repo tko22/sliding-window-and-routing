@@ -312,12 +312,14 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
                 // if neighbor(i) is in tentative, update cost and nextHop
                 for (int x = 0; x < tentativeTable.size(); x++)
                 {
+                    // if its in tentative table, check if you need to change cost/next hop given the new neighbor
                     if (tentativeTable[x].dest == i)
                     {
                         // std::cout << "found neighbor in tentative, check update cost" << endl;
                         in_tent = true; // for next check, if not in tentative and confirmed
-                        // if new cost is lower than current tentative cost
                         std::cout << "tentative table cost for i: " << i << " is: " << tentativeTable[x].cost << endl;
+
+                        // if new cost is lower than current tentative cost
                         if (tentativeTable[x].cost > cost)
                         {
                             tentativeTable[x].cost = cost;
@@ -335,7 +337,7 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
                             for (int k = 0; k < 256; k++)
                             {
 
-                                // check if valid neighbor
+                                // check if valid neighbor of i
                                 // 1) not nextID, which is already a neighbor and the path to it through nextID is the new path
                                 // 2) it is a neighbor, if there's a lsp given to it
                                 // 3) was a previous path, so it has to be in confirmedMap

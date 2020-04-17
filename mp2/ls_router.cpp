@@ -235,6 +235,8 @@ void lslistenForNeighbors()
                     if (i != globalMyID && connections[i] == true)
                         sendto(globalSocketUDP, sendBuf, sizeof(sendBuf), 0,
                                (struct sockaddr *)&globalNodeAddrs[i], sizeof(globalNodeAddrs[i]));
+
+                updateFwdTable(confirmedMap, adjMatrix);
             }
             std::cout << globalMyID << " -- Confirmed table";
             printMap(confirmedMap);
