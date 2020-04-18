@@ -117,7 +117,7 @@ void lslistenForNeighbors()
             }
         }
 
-        if (now.tv_sec - floodInterval.tv_sec > 15)
+        if (now.tv_sec - floodInterval.tv_sec > 6)
         {
             // flood periodically
             std::cout << "flooding periodically" << endl;
@@ -285,7 +285,7 @@ void lslistenForNeighbors()
             std::cout << "ls seqNum " << seqNum << endl;
 
             // if (haven't seen or cost change ) and ttl is still ok
-            if ((seqNum > seqNumMatrix[node1][node2]) && ttl > 0)
+            if (seqNum > seqNumMatrix[node1][node2] && ttl > 0)
             {
                 // update sequence matrix
                 seqNumMatrix[node1][node2] = seqNum;
@@ -328,7 +328,7 @@ void lslistenForNeighbors()
             }
             else
             {
-                std::cout << "... DISCARDING lsp..." << endl;
+                std::cout << "... DISCARDING lsp... current seq: " << seqNumMatrix[node1][node2] << endl;
             }
             std::cout << globalMyID << " -- Confirmed table";
             printMap(confirmedMap);
