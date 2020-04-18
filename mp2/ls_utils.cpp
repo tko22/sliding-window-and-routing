@@ -87,7 +87,7 @@ void sendPacketToNeighbor(int exceptID, char *buf)
 }
 
 // 'ls'<2 ascii bytes> node 1<net order 2 byte signed> node 2<netorder 2byte signed> cost<net order 4 byte signed> seq_num<net order 4 byte signed> ttl<netorder 4 byte signed>
-void floodLSP(bool *connections, int seqNumMatrix[256][256])
+void floodLSP(bool *connections, int seqNumMatrix[256][256], int adjMatrix[256][256])
 {
     std::cout << ":::: floodlsp Called ::::" << endl;
     int i;
@@ -109,6 +109,43 @@ void floodLSP(bool *connections, int seqNumMatrix[256][256])
             int seqNum = htonl(sequenceNumber);
 
             int cost = htonl(costs[i]);
+            int ttl = htonl(50);
+
+            char sendBuf[2 + sizeof(short int) + sizeof(short int) + sizeof(int) + sizeof(int) + sizeof(int)];
+            strcpy(sendBuf, "ls");
+            memcpy(sendBuf + 2, &node1, sizeof(short int));
+            memcpy(sendBuf + 2 + sizeof(short int), &node2, sizeof(short int));
+            memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int), &cost, sizeof(int));
+            memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int) + sizeof(int), &seqNum, sizeof(int));
+            memcpy(sendBuf + 2 + sizeof(short int) + sizeof(short int) + sizeof(int) + sizeof(int), &ttl, sizeof(int));
+
+            // flood to all neighbors
+            for (int send = 0; send < 256; send++)
+            {
+                if (send != globalMyID && connections[send] == true)
+                {
+                    // neighbor - broadcast
+                    if (sendto(globalSocketUDP, sendBuf, sizeof(sendBuf), 0,
+                               (struct sockaddr *)&globalNodeAddrs[send], sizeof(globalNodeAddrs[send])) < 0)
+                    {
+                        cout << "Error sending to node " << send << endl;
+                    };
+                }
+            }
+        }
+        // no connection
+        else if (i != globalMyID && adjMatrix[globalMyID][i] == -1)
+        {
+            seqNumMatrix[globalMyID][i]++;
+            int sequenceNumber = seqNumMatrix[globalMyID][i];
+            std::cout << "sending out down lsp: " << globalMyID << " -> " << i << " w/ seq " << sequenceNumber << endl;
+
+            short int node1 = htons(globalMyID);
+            short int node2 = htons(i);
+
+            int seqNum = htonl(sequenceNumber);
+
+            int cost = htonl(-1);
             int ttl = htonl(50);
 
             char sendBuf[2 + sizeof(short int) + sizeof(short int) + sizeof(int) + sizeof(int) + sizeof(int)];

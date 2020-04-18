@@ -33,7 +33,7 @@ bool connections[256];
 int costs[256];
 
 // sequence number for flooding
-int sequenceNum = 0; // TODO: figure out if this is the way to do it (floodLSP, cost)
+int sequenceNum = 0;
 
 int seqNumMatrix[256][256] = {{0}}; // [source][neighbor]
 
@@ -58,6 +58,7 @@ void lslistenForNeighbors()
     int bytesRecvd;
     while (1)
     {
+
         theirAddrLen = sizeof(theirAddr);
         if ((bytesRecvd = recvfrom(globalSocketUDP, recvBuf, 1000, 0,
                                    (struct sockaddr *)&theirAddr, &theirAddrLen)) == -1)
@@ -89,7 +90,7 @@ void lslistenForNeighbors()
 
                 updateFwdTable(confirmedMap, adjMatrix);
                 // flood to all neighbors - including the neighbor you just got a message from
-                floodLSP(connections, seqNumMatrix);
+                floodLSP(connections, seqNumMatrix, adjMatrix);
             }
 
             //record that we heard from heardFrom just now.
@@ -116,12 +117,12 @@ void lslistenForNeighbors()
             }
         }
 
-        if (now.tv_sec - floodInterval.tv_sec > 6)
+        if (now.tv_sec - floodInterval.tv_sec > 15)
         {
             // flood periodically
             std::cout << "flooding periodically" << endl;
             gettimeofday(&floodInterval, 0);
-            floodLSP(connections, seqNumMatrix);
+            floodLSP(connections, seqNumMatrix, adjMatrix);
         }
 
         //Is it a packet from the manager? (see mp2 specification for more details)
