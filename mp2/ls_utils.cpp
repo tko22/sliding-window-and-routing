@@ -139,7 +139,7 @@ void sendDownLSP(int seqNumMatrix[256][256], int downNode)
     seqNumMatrix[globalMyID][downNode]++;
     int sequenceNumber = seqNumMatrix[globalMyID][downNode];
     // sends lsp to all neighbors about downNode with cost 0, same sequence number
-    std::cout << "sending down link lsp to all neighbors (cost 0) with " << downNode << " seq - " << sequenceNumber << endl;
+    std::cout << "sending down link lsp to all neighbors (cost -1) with " << downNode << " seq - " << sequenceNumber << endl;
 
     short int node1 = htons(globalMyID);
     short int node2 = htons(downNode);
@@ -148,7 +148,7 @@ void sendDownLSP(int seqNumMatrix[256][256], int downNode)
     int ttl = htonl(50);
 
     // Set Cost as 0
-    int cost = htonl(0);
+    int cost = htonl(-1);
 
     char sendBuf[2 + sizeof(short int) + sizeof(short int) + sizeof(int) + sizeof(int) + sizeof(int)];
     strcpy(sendBuf, "ls");

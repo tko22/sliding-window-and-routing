@@ -290,12 +290,12 @@ void lslistenForNeighbors()
                 adjMatrix[node2][node1] = cost; // set costs
 
                 // update cost in cost table if it's my id
-                if (node2 == globalMyID && costs[node1] != cost)
+                if (node2 == globalMyID && costs[node1] != cost && cost > 0)
                 {
                     cout << "node 2 is self... updating cost to node1 " << node1 << " with cost" << cost << endl;
                     updateCost(node1, cost);
                 }
-                else if (node1 == globalMyID && costs[node2] != cost)
+                else if (node1 == globalMyID && costs[node2] != cost && cost > 0)
                 {
                     cout << "node 1 is self... updating cost to node2 " << node2 << "with cost " << cost << endl;
                     updateCost(node2, cost);
