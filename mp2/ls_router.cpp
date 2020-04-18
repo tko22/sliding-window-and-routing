@@ -219,7 +219,7 @@ void lslistenForNeighbors()
                 // convert to netorder
                 short int selfID = htons(globalMyID);
                 short int hdest = htons(dest);
-                int ttl = htonl(50);
+                int ttl = htonl(64);
                 int hCost = htonl(cost);
 
                 // increment sequence number

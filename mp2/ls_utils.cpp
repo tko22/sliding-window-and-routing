@@ -109,7 +109,7 @@ void floodLSP(bool *connections, int (&seqNumMatrix)[256][256], int adjMatrix[25
             int seqNum = htonl(sequenceNumber);
 
             int cost = htonl(costs[i]);
-            int ttl = htonl(50);
+            int ttl = htonl(64);
 
             char sendBuf[2 + sizeof(short int) + sizeof(short int) + sizeof(int) + sizeof(int) + sizeof(int)];
             strcpy(sendBuf, "ls");
@@ -146,7 +146,7 @@ void floodLSP(bool *connections, int (&seqNumMatrix)[256][256], int adjMatrix[25
             int seqNum = htonl(sequenceNumber);
 
             int cost = htonl(-1);
-            int ttl = htonl(50);
+            int ttl = htonl(64);
 
             char sendBuf[2 + sizeof(short int) + sizeof(short int) + sizeof(int) + sizeof(int) + sizeof(int)];
             strcpy(sendBuf, "ls");
@@ -185,7 +185,7 @@ void sendDownLSP(int (&seqNumMatrix)[256][256], int downNode)
     short int node2 = htons(downNode);
 
     int seqNum = htonl(sequenceNumber);
-    int ttl = htonl(50);
+    int ttl = htonl(64);
 
     // Set Cost as 0
     int cost = htonl(-1);
