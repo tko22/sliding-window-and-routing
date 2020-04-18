@@ -87,7 +87,7 @@ void sendPacketToNeighbor(int exceptID, char *buf)
 }
 
 // 'ls'<2 ascii bytes> node 1<net order 2 byte signed> node 2<netorder 2byte signed> cost<net order 4 byte signed> seq_num<net order 4 byte signed> ttl<netorder 4 byte signed>
-void floodLSP(bool *connections, int seqNumMatrix[256][256], int adjMatrix[256][256])
+void floodLSP(bool *connections, int (&seqNumMatrix)[256][256], int adjMatrix[256][256])
 {
     std::cout << ":::: floodlsp Called ::::" << endl;
     int i;
@@ -173,7 +173,7 @@ void floodLSP(bool *connections, int seqNumMatrix[256][256], int adjMatrix[256][
     }
 }
 
-void sendDownLSP(int seqNumMatrix[256][256], int downNode)
+void sendDownLSP(int (&seqNumMatrix)[256][256], int downNode)
 {
     // increment sequence number
     seqNumMatrix[globalMyID][downNode]++;

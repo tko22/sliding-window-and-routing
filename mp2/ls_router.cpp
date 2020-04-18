@@ -272,12 +272,12 @@ void lslistenForNeighbors()
             // sequence Number
             int seqNum;
             memcpy(&seqNum, recvBuf + 10, sizeof(int));
-            seqNum = ntohl(seqNum);
+            seqNum = (int)ntohl(seqNum);
 
             // ttl
             int ttl;
             memcpy(&ttl, recvBuf + 14, sizeof(int));
-            ttl = ntohl(ttl);
+            ttl = (int)ntohl(ttl);
             ttl = ttl - 1; // subtract ttl
 
             std::cout << "node1 " << node1 << "-> node2 " << node2 << " -- with ttl " << ttl << endl;
@@ -308,6 +308,8 @@ void lslistenForNeighbors()
                 // convert to netorder 
                 short int hNode1 = htons(node1);
                 short int hNode2 = htons(node2);
+                int hSeq = htonl(seqNum);
+                int hCost = htonl(cost);
                 ttl = htonl(ttl);
 
                 // forward it to neighbors else besides heardFrom
@@ -315,8 +317,8 @@ void lslistenForNeighbors()
                 strcpy(sendBuf, "ls");
                 memcpy(sendBuf + 2, &hNode1, sizeof(short int));
                 memcpy(sendBuf + 2 + sizeof(short int), &hNode2, sizeof(short int));
-                memcpy(sendBuf + 2 + 2 * sizeof(short int), &recvBuf[6], sizeof(int));
-                memcpy(sendBuf + 2 + 2 * sizeof(short int) + sizeof(int), &recvBuf[10], sizeof(int));
+                memcpy(sendBuf + 2 + 2 * sizeof(short int), &hCost, sizeof(int));
+                memcpy(sendBuf + 2 + 2 * sizeof(short int) + sizeof(int), &hSeq, sizeof(int));
                 memcpy(sendBuf + 2 + 2 * sizeof(short int) + 2 * sizeof(int), &ttl, sizeof(int));
                 for (int i = 0; i < 256; i++)
                     // send to neighbors except self and exceptID (used for not sending an update packet)
