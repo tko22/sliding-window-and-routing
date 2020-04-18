@@ -98,7 +98,6 @@ void lslistenForNeighbors()
 
         timeval now;
         gettimeofday(&now, 0);
-        cout << "checking... " << endl;
         // if any connections are different by 3 pings then it is broken, send ls
         for (int x = 0; x < 256; x++)
         {
