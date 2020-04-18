@@ -117,7 +117,7 @@ void lslistenForNeighbors()
             }
         }
 
-        if (now.tv_sec - floodInterval.tv_sec > 6)
+        if (now.tv_sec - floodInterval.tv_sec > 4)
         {
             // flood periodically
             std::cout << "flooding periodically" << endl;
