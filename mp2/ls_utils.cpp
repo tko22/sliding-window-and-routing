@@ -125,8 +125,11 @@ void floodLSP(bool *connections, int seqNumMatrix[256][256])
                 if (send != globalMyID && connections[send] == true)
                 {
                     // neighbor - broadcast
-                    sendto(globalSocketUDP, sendBuf, sizeof(sendBuf), 0,
-                           (struct sockaddr *)&globalNodeAddrs[send], sizeof(globalNodeAddrs[send]));
+                    if (sendto(globalSocketUDP, sendBuf, sizeof(sendBuf), 0,
+                               (struct sockaddr *)&globalNodeAddrs[send], sizeof(globalNodeAddrs[send])) < 0)
+                    {
+                        cout << "Error sending to node " << send << endl;
+                    };
                 }
             }
         }
@@ -163,7 +166,7 @@ void sendDownLSP(int seqNumMatrix[256][256], int downNode)
         // if neighbor, tell them about it
         if (i != globalMyID && connections[i] == true)
         {
-            std::cout << "floodlsp to node: " << i << "-- lsp: " << globalMyID << " -> " << downNode << "with cost 0" << endl;
+            std::cout << "floodlsp to node: " << i << "-- lsp: " << globalMyID << " -> " << downNode << "with cost -1" << endl;
             sendto(globalSocketUDP, sendBuf, sizeof(sendBuf), 0,
                    (struct sockaddr *)&globalNodeAddrs[i], sizeof(globalNodeAddrs[i]));
         }

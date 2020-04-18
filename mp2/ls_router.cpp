@@ -74,31 +74,6 @@ void lslistenForNeighbors()
             heardFrom = atoi(
                 strchr(strchr(strchr(fromAddr, '.') + 1, '.') + 1, '.') + 1);
 
-            timeval now;
-            gettimeofday(&now, 0);
-            // if any connections are different by 3 pings then it is broken, send ls
-            for (int x = 0; x < 256; x++)
-            {
-                // last time you heard from node x (which you already had a connection with) is more than 1 seconds
-                if ((now.tv_sec - globalLastHeartbeat[x].tv_sec) >= 1.8 && connections[x] == true)
-                {
-                    std::cout << "\n"
-                              << "DOWN NODE ~~~~~~ link with " << x << " is down..." << endl;
-                    // set connection with x to false, no longer neighbor
-                    connections[x] = false;
-                    // send LS flood of 0 - link doesn't not exist
-                    sendDownLSP(seqNumMatrix, x);
-                }
-            }
-
-            if (now.tv_sec - floodInterval.tv_sec > 4)
-            {
-                // flood periodically
-                std::cout << "flooding periodically" << endl;
-                gettimeofday(&floodInterval, 0);
-                floodLSP(connections, seqNumMatrix);
-            }
-
             // if new connection
             if (connections[heardFrom] == false)
             {
@@ -119,6 +94,35 @@ void lslistenForNeighbors()
 
             //record that we heard from heardFrom just now.
             gettimeofday(&globalLastHeartbeat[heardFrom], 0);
+        }
+
+        timeval now;
+        gettimeofday(&now, 0);
+        cout << "checking... " << endl;
+        // if any connections are different by 3 pings then it is broken, send ls
+        for (int x = 0; x < 256; x++)
+        {
+            // last time you heard from node x (which you already had a connection with) is more than 1 seconds
+            if ((now.tv_sec - globalLastHeartbeat[x].tv_sec) >= 1.8 && connections[x] == true)
+            {
+                std::cout << "\n"
+                          << "DOWN NODE ~~~~~~ link with " << x << " is down..." << endl;
+                // set connection with x to false, no longer neighbor
+                connections[x] = false;
+                adjMatrix[globalMyID][x] = -1;
+                adjMatrix[x][globalMyID] = -1;
+                // send LS flood of 0 - link doesn't not exist
+                sendDownLSP(seqNumMatrix, x);
+                updateFwdTable(confirmedMap, adjMatrix);
+            }
+        }
+
+        if (now.tv_sec - floodInterval.tv_sec > 6)
+        {
+            // flood periodically
+            std::cout << "flooding periodically" << endl;
+            gettimeofday(&floodInterval, 0);
+            floodLSP(connections, seqNumMatrix);
         }
 
         //Is it a packet from the manager? (see mp2 specification for more details)
