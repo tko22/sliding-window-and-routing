@@ -326,7 +326,7 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
         tentativeTable.erase(tentativeTable.begin() + next_idx);
         confirmedMap[nextEntry.dest] = nextEntry;
 
-        std::cout << "next Entry: " << nextEntry.dest << endl;
+        std::cout << "next Entry: " << nextEntry.dest << " : nextHop: " << nextEntry.nexthop << endl;
         // std::cout << "tentative table after remove next entry: ";
         // printVectorEntry(tentativeTable);
 
@@ -417,6 +417,7 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
                             // no need to change cost
                             if (nextID < lowestNodeWithSameCost)
                             {
+                                cout << "nextID " << nextID << "is smaller than lowest node " << lowestNodeWithSameCost << endl;
                                 tentativeTable[x].nexthop = nextHop;
                             }
                             // but also check wehtehr the lowestNodeWithSameCost path is the same
