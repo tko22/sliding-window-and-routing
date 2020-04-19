@@ -117,7 +117,7 @@ void lslistenForNeighbors()
             }
         }
 
-        if (now.tv_sec - floodInterval.tv_sec > 8)
+        if (now.tv_sec - floodInterval.tv_sec > 7)
         {
             // flood periodically
             gettimeofday(&floodInterval, 0);
