@@ -117,10 +117,9 @@ void lslistenForNeighbors()
             }
         }
 
-        if (now.tv_sec - floodInterval.tv_sec > 7)
+        if (now.tv_sec - floodInterval.tv_sec > 9)
         {
             // flood periodically
-            std::cout << "flooding periodically" << endl;
             gettimeofday(&floodInterval, 0);
             floodLSP(connections, seqNumMatrix, adjMatrix);
         }
