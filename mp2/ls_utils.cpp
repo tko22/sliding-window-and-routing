@@ -77,7 +77,7 @@ void setupAdjMatrix(int matrix[256][256], bool *connections, unsigned int *costs
 // flood
 void sendPacketToNeighbor(int exceptID, char *buf)
 {
-    std::cout << "sending LSP flood packet to neighbors" << endl;
+    // std::cout << "sending LSP flood packet to neighbors" << endl;
     int i;
     for (i = 0; i < 256; i++)
         // send to neighbors except self and exceptID (used for not sending an update packet)
@@ -101,7 +101,7 @@ void floodLSP(bool *connections, int (&seqNumMatrix)[256][256], int adjMatrix[25
             // increment sqeuence number
             seqNumMatrix[globalMyID][i]++;
             int sequenceNumber = seqNumMatrix[globalMyID][i];
-            std::cout << "sending out lsp: " << globalMyID << " -> " << i << " w/ seq " << sequenceNumber << endl;
+            // std::cout << "sending out lsp: " << globalMyID << " -> " << i << " w/ seq " << sequenceNumber << endl;
 
             short int node1 = htons(globalMyID);
             short int node2 = htons(i);
@@ -138,7 +138,7 @@ void floodLSP(bool *connections, int (&seqNumMatrix)[256][256], int adjMatrix[25
         {
             seqNumMatrix[globalMyID][i]++;
             int sequenceNumber = seqNumMatrix[globalMyID][i];
-            std::cout << "sending out down lsp: " << globalMyID << " -> " << i << " w/ seq " << sequenceNumber << endl;
+            // std::cout << "sending out down lsp: " << globalMyID << " -> " << i << " w/ seq " << sequenceNumber << endl;
 
             short int node1 = htons(globalMyID);
             short int node2 = htons(i);
@@ -179,7 +179,7 @@ void sendDownLSP(int (&seqNumMatrix)[256][256], int downNode)
     seqNumMatrix[globalMyID][downNode]++;
     int sequenceNumber = seqNumMatrix[globalMyID][downNode];
     // sends lsp to all neighbors about downNode with cost 0, same sequence number
-    std::cout << "sending down link lsp to all neighbors (cost -1) with " << downNode << " seq - " << sequenceNumber << endl;
+    // std::cout << "sending down link lsp to all neighbors (cost -1) with " << downNode << " seq - " << sequenceNumber << endl;
 
     short int node1 = htons(globalMyID);
     short int node2 = htons(downNode);
@@ -203,7 +203,7 @@ void sendDownLSP(int (&seqNumMatrix)[256][256], int downNode)
         // if neighbor, tell them about it
         if (i != globalMyID && connections[i] == true)
         {
-            std::cout << "floodlsp to node: " << i << "-- lsp: " << globalMyID << " -> " << downNode << "with cost -1" << endl;
+            // std::cout << "floodlsp to node: " << i << "-- lsp: " << globalMyID << " -> " << downNode << "with cost -1" << endl;
             sendto(globalSocketUDP, sendBuf, sizeof(sendBuf), 0,
                    (struct sockaddr *)&globalNodeAddrs[i], sizeof(globalNodeAddrs[i]));
         }
@@ -213,7 +213,7 @@ void sendDownLSP(int (&seqNumMatrix)[256][256], int downNode)
 //forward format: 'forward'<7 ASCII bytes>, destID<net order 2 byte signed>, <some ASCII message>
 void sendForwardPacket(int nextHop, int dest, char *message)
 {
-    std::cout << "Forwarding Packet to " << nextHop << " with dest: " << dest << endl;
+    // std::cout << "Forwarding Packet to " << nextHop << " with dest: " << dest << endl;
     char sendBuf[7 + sizeof(short int) + strlen(message)];
     short int no_destID = htons(dest);
     strcpy(sendBuf, "forward");
@@ -264,7 +264,7 @@ void printMap(std::map<int, Entry> &myMap)
 // https://cseweb.ucsd.edu/classes/fa10/cse123/lectures/disc.123-fa10-l8.pdf
 void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
 {
-    std::cout << "updatefwdtable" << endl;
+    // std::cout << "updatefwdtable" << endl;
     std::vector<Entry> tentativeTable;
     std::vector<int> neighborList; // list of nextHops
 
@@ -289,9 +289,9 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
             neighborList.push_back(i); // add to neighborlist (list of nextHops)
         }
     }
-    std::cout << "Added neighbors: " << endl;
+    // std::cout << "Added neighbors: " << endl;
     printVectors(neighborList);
-    std::cout << "tentative list" << endl;
+    // std::cout << "tentative list" << endl;
     printVectorEntry(tentativeTable);
 
     // keep going until tentative table is empty, else
@@ -326,7 +326,7 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
         tentativeTable.erase(tentativeTable.begin() + next_idx);
         confirmedMap[nextEntry.dest] = nextEntry;
 
-        std::cout << "next Entry: " << nextEntry.dest << " : nextHop: " << nextEntry.nexthop << endl;
+        // std::cout << "next Entry: " << nextEntry.dest << " : nextHop: " << nextEntry.nexthop << endl;
         // std::cout << "tentative table after remove next entry: ";
         // printVectorEntry(tentativeTable);
 
@@ -357,7 +357,7 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
                     {
                         // std::cout << "found neighbor in tentative, check update cost" << endl;
                         in_tent = true; // for next check, if not in tentative and confirmed
-                        std::cout << "tentative table cost for i: " << i << " is: " << tentativeTable[x].cost << endl;
+                        // std::cout << "tentative table cost for i: " << i << " is: " << tentativeTable[x].cost << endl;
 
                         // if new cost is lower than current tentative cost
                         if (tentativeTable[x].cost > cost)
@@ -373,7 +373,7 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
                             // and see which neighbor to i, is the last node before the destination with the same cost
                             // to do so, get its cost and add the edge to it adjMatrix[nextID][i], if it exists
                             std::vector<int> tieNeighborVec;
-                            cout << "cost for i " << i << "is the same= " << tentativeTable[x].cost << "... checking" << endl;
+                            // cout << "cost for i " << i << "is the same= " << tentativeTable[x].cost << "... checking" << endl;
                             for (int k = 0; k < 256; k++)
                             {
 
@@ -388,7 +388,7 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
                                     int path_cost = confirmedMap[k].cost + adjMatrix[i][k];
                                     if (path_cost == cost)
                                     {
-                                        cout << "other neighbor node  " << k << endl;
+                                        // cout << "other neighbor node  " << k << endl;
                                         tieNeighborVec.push_back(k);
                                     }
                                 }
@@ -410,14 +410,14 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
                                 }
                             }
 
-                            cout << "lowest node with the same cost is  " << lowestNodeWithSameCost << " with next hop: " << confirmedMap[lowestNodeWithSameCost].nexthop << endl;
+                            // cout << "lowest node with the same cost is  " << lowestNodeWithSameCost << " with next hop: " << confirmedMap[lowestNodeWithSameCost].nexthop << endl;
 
                             // now check if the nextID is smaller than lowestNodeWithSameCost
                             // if so, use that path, change the next hop to the lowest neighbors nexthop
                             // no need to change cost
                             if (nextID < lowestNodeWithSameCost)
                             {
-                                cout << "nextID " << nextID << "is smaller than lowest node " << lowestNodeWithSameCost << endl;
+                                // cout << "nextID " << nextID << "is smaller than lowest node " << lowestNodeWithSameCost << endl;
                                 tentativeTable[x].nexthop = nextHop;
                             }
                             // but also check wehtehr the lowestNodeWithSameCost path is the same
@@ -425,7 +425,7 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
                             // just check just in case
                             else if (lowestNodeWithSameCost != globalMyID && tentativeTable[x].nexthop != confirmedMap[lowestNodeWithSameCost].nexthop)
                             {
-                                cout << "CHANGING NEXT HOP TO LOWEST NODE WITH SAME COST NOT GLOBAL ID - lowestnodewithsame cost : " << lowestNodeWithSameCost << endl;
+                                // cout << "CHANGING NEXT HOP TO LOWEST NODE WITH SAME COST NOT GLOBAL ID - lowestnodewithsame cost : " << lowestNodeWithSameCost << endl;
                                 tentativeTable[x].nexthop = confirmedMap[lowestNodeWithSameCost].nexthop;
                             }
                         }
@@ -436,8 +436,8 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
                 // if neighbor(i) not in tentative or confirmed, add to tentative
                 if (in_tent == false && confirmedMap.find(i) == confirmedMap.end())
                 {
-                    std::cout << "i isn't in tentative... ";
-                    std::cout << "add new neighbor i: " << i << endl;
+                    // std::cout << "i isn't in tentative... ";
+                    // std::cout << "add new neighbor i: " << i << endl;
                     // key doesnt exist - can't reach, not in tentative
                     // Add to tentative
                     // i is a neighbor
@@ -450,9 +450,9 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
             }
         }
     }
-    std::cout << globalMyID << " -- confirmed table";
-    printMap(confirmedMap);
-    std::cout << "exit updatefwdtable \n"
-              << endl;
+    // std::cout << globalMyID << " -- confirmed table";
+    // printMap(confirmedMap);
+    // std::cout << "exit updatefwdtable \n"
+    //           << endl;
     return;
 }

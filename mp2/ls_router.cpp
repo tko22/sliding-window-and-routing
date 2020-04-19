@@ -78,9 +78,9 @@ void lslistenForNeighbors()
             // if new connection
             if (connections[heardFrom] == false)
             {
-                cout << "\n"
-                     << globalMyID << "!!! NEW CONNECTION with  " << heardFrom << "\n"
-                     << endl;
+                // cout << "\n"
+                //      << globalMyID << "!!! NEW CONNECTION with  " << heardFrom << "\n"
+                //      << endl;
                 //this node can consider heardFrom to be directly connected to it; do any such logic now.
                 updateConnection(heardFrom, true);
 
@@ -105,8 +105,8 @@ void lslistenForNeighbors()
             // last time you heard from node x (which you already had a connection with) is more than 1 seconds
             if ((now.tv_sec - globalLastHeartbeat[x].tv_sec) >= 3 && connections[x] == true)
             {
-                std::cout << "\n"
-                          << "DOWN NODE ~~~~~~ link with " << x << " is down..." << endl;
+                // std::cout << "\n"
+                //           << "DOWN NODE ~~~~~~ link with " << x << " is down..." << endl;
                 // set connection with x to false, no longer neighbor
                 connections[x] = false;
                 adjMatrix[globalMyID][x] = -1;
@@ -129,8 +129,8 @@ void lslistenForNeighbors()
         //send format: 'send'<4 ASCII bytes>, destID<net order 2 byte signed>, <some ASCII message>
         if (!strncmp(recvBuf, "send", 4))
         {
-            std::cout << "\n"
-                      << globalMyID << " -- Receive send -- " << endl;
+            // std::cout << "\n"
+            //           << globalMyID << " -- Receive send -- " << endl;
             //send the requested message to the requested destination node
             short int newdest;
             memcpy(&newdest, recvBuf + 4, sizeof(short int));
@@ -141,8 +141,10 @@ void lslistenForNeighbors()
             memcpy(message, recvBuf + 6, bytesRecvd - 6);
             message[bytesRecvd - 6] = '\0';
 
-            std::cout << "message: " << message << endl;
-            cout << "send dest: " << dest << endl;
+            // std::cout << "\n"
+            //           << globalMyID << " -- Receive send -- message: " << message << "send dest: " << dest << endl;
+            // std::cout << "message: " << message << endl;
+            // cout << "send dest: " << dest << endl;
 
             // decide whether to send
             if (dest == globalMyID)
@@ -152,23 +154,23 @@ void lslistenForNeighbors()
             }
             else
             {
-                std::cout << "decide to send out packet" << endl;
+                // std::cout << "decide to send out packet" << endl;
                 // check if you can reach node
                 if (confirmedMap.find(dest) == confirmedMap.end())
                 {
-                    std::cout << "dest: " << dest << " unreachable. write to log" << endl;
+                    // std::cout << "dest: " << dest << " unreachable. write to log" << endl;
                     // key doesnt exist - can't reach
                     lswriteUnreachableLog(theLogFile, dest);
                 }
                 else
                 {
                     int nextHop = confirmedMap[dest].nexthop;
-                    std::cout << "nexthop for dest: " << dest << " is " << nextHop << endl;
-                    std::cout << "writing to log and sending..." << endl;
+                    // std::cout << "nexthop for dest: " << dest << " is " << nextHop << endl;
+                    // std::cout << "writing to log and sending..." << endl;
                     // write send log message
                     lswriteSendLog(theLogFile, dest, nextHop, message);
 
-                    std::cout << "Forwarding Packet to " << nextHop << " with dest: " << dest << endl;
+                    // std::cout << "Forwarding Packet to " << nextHop << " with dest: " << dest << endl;
                     char sendBuf[7 + sizeof(short int) + strlen(message)];
                     short int no_destID = htons(dest);
                     strcpy(sendBuf, "forward");
@@ -178,18 +180,17 @@ void lslistenForNeighbors()
                            (struct sockaddr *)&globalNodeAddrs[nextHop], sizeof(globalNodeAddrs[nextHop]));
                 }
             }
-            std::cout << globalMyID << " -- Confirmed table";
-            printMap(confirmedMap);
-            std::cout << " -- exit send receive -- \n"
-                      << endl;
+            // std::cout << globalMyID << " -- Confirmed table";
+            // printMap(confirmedMap);
+            // std::cout << " -- exit send receive -- \n"
+            //           << endl;
         }
 
         /* ---------- COST CHANGE ------------ */
         //'cost'<4 ASCII bytes>, destID<net order 2 byte signed> newCost<net order 4 byte signed>
         else if (!strncmp(recvBuf, "cost", 4))
         {
-            cout << "\n"
-                 << globalMyID << "-- Receive cost -- " << endl;
+
             //record the cost change (remember, the link might currently be down! in that case,
             //this is the new cost you should treat it as having once it comes back up.)
 
@@ -205,13 +206,16 @@ void lslistenForNeighbors()
 
             updateCost(dest, cost);
 
-            cout << "receive cost - dest: " << dest << endl;
-            cout << "receive cost - costs: " << cost << endl;
+            // cout << "\n"
+            // << globalMyID << "-- Receive cost -- dest: " << dest << " costs: " << cost << endl;
+
+            // cout << "receive cost - dest: " << dest << endl;
+            // cout << "receive cost - costs: " << cost << endl;
 
             // if neighbor (if connection is there), flood LSP next cost
             if (connections[dest] == true)
             {
-                std::cout << "going to flood because cost change for neighbor" << endl;
+                // std::cout << "going to flood because cost change for neighbor" << endl;
                 // update adjMatrix, since link exists
                 adjMatrix[globalMyID][dest] = cost;
                 adjMatrix[dest][globalMyID] = cost;
@@ -242,10 +246,10 @@ void lslistenForNeighbors()
 
                 updateFwdTable(confirmedMap, adjMatrix);
             }
-            std::cout << globalMyID << " -- Confirmed table";
-            printMap(confirmedMap);
-            std::cout << " -- exit cost receive -- \n"
-                      << endl;
+            // std::cout << globalMyID << " -- Confirmed table";
+            // printMap(confirmedMap);
+            // std::cout << " -- exit cost receive -- \n"
+            //           << endl;
         }
 
         /* ---------- LINK STATE FLOODING ------------ */
@@ -254,8 +258,8 @@ void lslistenForNeighbors()
         // link state packet flood
         else if (!strncmp(recvBuf, "ls", 2))
         {
-            cout << "\n"
-                 << globalMyID << " -- Recieve LSP flood from " << heardFrom << " -- " << endl;
+            // cout << "\n"
+            //      << globalMyID << " -- Recieve LSP flood from " << heardFrom << " -- " << endl;
             short int node1c; // always the source
             memcpy(&node1c, recvBuf + 2, sizeof(short int));
             int node1 = (int)ntohs(node1c);
@@ -280,9 +284,9 @@ void lslistenForNeighbors()
             ttl = (int)ntohl(ttl);
             ttl = ttl - 1; // subtract ttl
 
-            std::cout << "node1 " << node1 << "-> node2 " << node2 << " -- with ttl " << ttl << endl;
-            std::cout << "cost " << cost << endl;
-            std::cout << "ls seqNum " << seqNum << endl;
+            // std::cout << "node1 " << node1 << "-> node2 " << node2 << " -- with ttl " << ttl << "with cost: " << cost << " - seq: " << seqNum << endl;
+            // std::cout << "cost " << cost << endl;
+            // std::cout << "ls seqNum " << seqNum << endl;
 
             // if (haven't seen or cost change ) and ttl is still ok
             if (seqNum > seqNumMatrix[node1][node2] && ttl > 0)
@@ -296,12 +300,12 @@ void lslistenForNeighbors()
                 // update cost in cost table if it's my id
                 if (node2 == globalMyID && costs[node1] != cost && cost > 0)
                 {
-                    cout << "node 2 is self... updating cost to node1 " << node1 << " with cost" << cost << endl;
+                    // cout << "node 2 is self... updating cost to node1 " << node1 << " with cost" << cost << endl;
                     updateCost(node1, cost);
                 }
                 else if (node1 == globalMyID && costs[node2] != cost && cost > 0)
                 {
-                    cout << "node 1 is self... updating cost to node2 " << node2 << "with cost " << cost << endl;
+                    // cout << "node 1 is self... updating cost to node2 " << node2 << "with cost " << cost << endl;
                     updateCost(node2, cost);
                 }
 
@@ -330,12 +334,12 @@ void lslistenForNeighbors()
             }
             else
             {
-                std::cout << "... DISCARDING lsp... current seq: " << seqNumMatrix[node1][node2] << endl;
+                // std::cout << "... DISCARDING lsp... current seq: " << seqNumMatrix[node1][node2] << endl;
             }
-            std::cout << globalMyID << " -- Confirmed table";
-            printMap(confirmedMap);
-            std::cout << "-- exit ls receive -- \n"
-                      << endl;
+            // std::cout << globalMyID << " -- Confirmed table";
+            // printMap(confirmedMap);
+            // std::cout << "-- exit ls receive -- \n"
+            //           << endl;
             // don't flood if already seen
         }
 
@@ -344,8 +348,6 @@ void lslistenForNeighbors()
         //forward format: 'forward'<7 ASCII bytes>, destID<net order 2 byte signed>, <some ASCII message>
         else if (!strncmp(recvBuf, "forward", 7))
         {
-            std::cout << "\n"
-                      << globalMyID << " -- Receive forward -- " << endl;
 
             // dest
             short int newdest;
@@ -360,37 +362,45 @@ void lslistenForNeighbors()
                 message[i - 9] = recvBuf[i];
             }
             message[bytesRecvd - 9] = '\0';
-            cout << "message for " << dest << " : " << message << endl;
+
+            // std::cout << "\n"
+            //           << globalMyID << " -- Receive forward -- to dest: " << dest << " message : " << message << endl;
+            // cout
+            //     << "message for "
+            //     << dest
+            //     << " : "
+            //     << message
+            //     << endl;
 
             // decide whether to forward or not
             if (dest == globalMyID)
             {
-                std::cout << "GOT PACKET: packet is MINE - message: " << message << endl;
+                // std::cout << "GOT PACKET: packet is MINE - message: " << message << endl;
                 // if dest is itself, write to log, receive
                 lswriteReceiveLog(theLogFile, message);
             }
             else
             {
-                std::cout << "need to forward packet for " << dest << endl;
+                // std::cout << "need to forward packet for " << dest << endl;
                 // need to forward
                 // look at forward table and send
                 // check if unreachable (for debugging maybe print it out to see whether you did it wrong or not)
                 if (confirmedMap.find(dest) == confirmedMap.end())
                 {
-                    std::cout << "dest: " << dest << " unreachable. write to log" << endl;
+                    // std::cout << "dest: " << dest << " unreachable. write to log" << endl;
                     // key doesnt exist - can't reach
                     lswriteUnreachableLog(theLogFile, dest);
                 }
                 else
                 {
                     int nextHop = confirmedMap[dest].nexthop;
-                    std::cout << "nexthop for dest: " << dest << "is " << nextHop << endl;
-                    std::cout << "writing to log and sending..." << endl;
+                    // std::cout << "nexthop for dest: " << dest << "is " << nextHop << endl;
+                    // std::cout << "writing to log and sending..." << endl;
                     // write send log message
                     lswriteForwardLog(theLogFile, dest, nextHop, message);
 
                     // remove null terminator
-                    std::cout << "Forwarding Packet to " << nextHop << " with dest: " << dest << endl;
+                    // std::cout << "Forwarding Packet to " << nextHop << " with dest: " << dest << endl;
                     char sendBuf[7 + sizeof(short int) + strlen(message)];
                     short int no_destID = htons(dest);
                     strcpy(sendBuf, "forward");
@@ -400,10 +410,10 @@ void lslistenForNeighbors()
                            (struct sockaddr *)&globalNodeAddrs[nextHop], sizeof(globalNodeAddrs[nextHop]));
                 }
             }
-            std::cout << globalMyID << " -- Confirmed table";
-            printMap(confirmedMap);
-            std::cout << "-- exit forward receive -- \n"
-                      << endl;
+            // std::cout << globalMyID << " -- Confirmed table";
+            // printMap(confirmedMap);
+            // std::cout << "-- exit forward receive -- \n"
+            //           << endl;
         }
     }
     //(should never reach here)
