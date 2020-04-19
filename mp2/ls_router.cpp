@@ -103,7 +103,7 @@ void lslistenForNeighbors()
         for (int x = 0; x < 256; x++)
         {
             // last time you heard from node x (which you already had a connection with) is more than 1 seconds
-            if ((now.tv_sec - globalLastHeartbeat[x].tv_sec) >= 3 && connections[x] == true)
+            if ((now.tv_sec - globalLastHeartbeat[x].tv_sec) >= 1.8 && connections[x] == true)
             {
                 // std::cout << "\n"
                 //           << "DOWN NODE ~~~~~~ link with " << x << " is down..." << endl;
@@ -117,7 +117,7 @@ void lslistenForNeighbors()
             }
         }
 
-        if (now.tv_sec - floodInterval.tv_sec > 20)
+        if (now.tv_sec - floodInterval.tv_sec > 7)
         {
             // flood periodically
             std::cout << "flooding periodically" << endl;
