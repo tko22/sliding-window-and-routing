@@ -89,7 +89,7 @@ void sendPacketToNeighbor(int exceptID, char *buf)
 // 'ls'<2 ascii bytes> node 1<net order 2 byte signed> node 2<netorder 2byte signed> cost<net order 4 byte signed> seq_num<net order 4 byte signed> ttl<netorder 4 byte signed>
 void floodLSP(bool *connections, int (&seqNumMatrix)[256][256], int adjMatrix[256][256])
 {
-    std::cout << ":::: floodlsp Called ::::" << endl;
+    // std::cout << ":::: floodlsp Called ::::" << endl;
     int i;
     for (i = 0; i < 256; i++)
     {
@@ -290,9 +290,9 @@ void updateFwdTable(std::map<int, Entry> &confirmedMap, int adjMatrix[256][256])
         }
     }
     // std::cout << "Added neighbors: " << endl;
-    printVectors(neighborList);
+    // printVectors(neighborList);
     // std::cout << "tentative list" << endl;
-    printVectorEntry(tentativeTable);
+    // printVectorEntry(tentativeTable);
 
     // keep going until tentative table is empty, else
     // 1) pick lowest cost in tentative and put into confirmed - Next
