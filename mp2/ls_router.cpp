@@ -117,13 +117,13 @@ void lslistenForNeighbors()
             }
         }
 
-        // if (now.tv_sec - floodInterval.tv_sec > 15)
-        // {
-        //     // flood periodically
-        //     std::cout << "flooding periodically" << endl;
-        //     gettimeofday(&floodInterval, 0);
-        //     floodLSP(connections, seqNumMatrix, adjMatrix);
-        // }
+        if (now.tv_sec - floodInterval.tv_sec > 20)
+        {
+            // flood periodically
+            std::cout << "flooding periodically" << endl;
+            gettimeofday(&floodInterval, 0);
+            floodLSP(connections, seqNumMatrix, adjMatrix);
+        }
 
         //Is it a packet from the manager? (see mp2 specification for more details)
         //send format: 'send'<4 ASCII bytes>, destID<net order 2 byte signed>, <some ASCII message>
