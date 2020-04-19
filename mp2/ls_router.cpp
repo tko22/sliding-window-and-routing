@@ -103,7 +103,7 @@ void lslistenForNeighbors()
         for (int x = 0; x < 256; x++)
         {
             // last time you heard from node x (which you already had a connection with) is more than 1 seconds
-            if ((now.tv_sec - globalLastHeartbeat[x].tv_sec) >= 2 && connections[x] == true)
+            if ((now.tv_sec - globalLastHeartbeat[x].tv_sec) >= 1.5 && connections[x] == true)
             {
                 std::cout << "\n"
                           << "DOWN NODE ~~~~~~ link with " << x << " is down..." << endl;
