@@ -956,3 +956,33 @@ Group Status: Group of 2
 ===================== End =====================
 
 
+=============== Auto-grader Test ===============
+Code Pull Time: 2020-04-19 13:44:42.558352
+Test Commit ID: 32f41d59462677ac5441793b58b8130e776647cd
+Group Status: Group of 2
+----------------- Test Results ----------------
+-0	Compile: Ok
+-0	Test Case 1: LS Sending messages over 3-node topology succeeded!
+-5	Test Case 2: LS Shortest path in example topology failed. (don't forget tie-breaking logic: for the example topo, sending from 6 to 3 should take path 6 5 2 3.) 
+-5	Test Case 3: LS Shortest path (0->77, 77->0, 23->50) in 8x8 grid topology failed. 
+		Node 0 reported that node 77 was unreachable. 
+		Node 77 reported that node 0 was unreachable. 
+-10	Test Case 4: LS Switching to better path when available failed. 
+-0	Test Case 5: LS Falling back to worse path succeeded!
+-0	Test Case 6: LS Reporting unreachable after partition succeeded!
+-0	Test Case 7: LS Healing after partition succeeded!
+-5	Test Case 8: LS with lots of link up/downs failed.
+-0	Test Case 9: DV/PV Sending messages over 3-node topology succeeded!
+-0	Test Case 10: DV/PV Shortest path in example topology succeeded!
+-0	Test Case 11: DV/PV Shortest path in 8x8 grid topology succeeded!
+-0	Test Case 12: DV/PV Switching to better path when available succeeded!
+-10	Test Case 13: DV/PV Falling back to worse path failed.
+-0	Test Case 14: DV/PV Reporting unreachable after partition succeeded!
+-0	Test Case 15: DV/PV Healing after partition succeeded!
+-0	Test Case 16: DV/PV with lots of link up/downs succeeded!
+-0	Late Penalty: Last commit happens before due.
+-------------------- Score --------------------
+65/100
+===================== End =====================
+
+
