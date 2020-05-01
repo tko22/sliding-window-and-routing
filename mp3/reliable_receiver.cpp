@@ -3,6 +3,11 @@
 
 void reliablyReceive(unsigned short int myUDPport, char *destinationFile)
 {
+
+    // already have data, write to file
+    FILE *fd;
+    fd = fopen(destinationFile, "w");
+    // fwrite(buf, sizeof(char), numbytes, fd);
 }
 
 int main(int argc, char **argv)

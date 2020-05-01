@@ -3,6 +3,12 @@
 
 void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *filename, unsigned long long int bytesToTransfer)
 {
+    // read data from file
+    FILE *f;
+    f = fopen(filename, "rb");
+
+    char data[bytesToTransfer]; //  number of bytes from the specified file to be sent to the receiver
+    size_t newLen = fread(data, sizeof(char), bytesToTransfer, f);
 }
 
 int main(int argc, char **argv)
