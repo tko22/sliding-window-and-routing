@@ -1,8 +1,57 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <iomanip>
+#include <chrono>
+#include <arpa/inet.h>
+#include <errno.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <string.h>
+
+#define SWS 8         // sender
+#define MAX_SEQ_NO 16 // max sequence number (15) + 1
+
+struct sockaddr_in recv_addr, sender_addr;
+int globalSocketUDP;
 
 void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *filename, unsigned long long int bytesToTransfer)
 {
+    // receiver info
+    memset(&recv_addr, 0, sizeof(recv_addr));
+    recv_addr.sin_family = AF_INET;
+    recv_addr.sin_port = htons(hostUDPport);
+    inet_pton(AF_INET, hostname, &recv_addr.sin_addr);
+
+    // self
+    memset(&sender_addr, 0, sizeof(sender_addr));
+    sender_addr.sin_family = AF_INET;
+    sender_addr.sin_addr.s_addr = INADDR_ANY;
+    sender_addr.sin_port = htons(0);
+
+    // socket() and bind() our socket. We will do all sendto()ing and recvfrom()ing on this one.
+    if ((globalSocketUDP = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+    {
+        perror("socket");
+        exit(1);
+    }
+
+    int enable = 1;
+    // set reuseaddr
+    if (setsockopt(globalSocketUDP, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+        perror("setsockopt(SO_REUSEADDR) failed");
+    // set resuseport
+    if (setsockopt(globalSocketUDP, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(int)) < 0)
+        perror("setsockopt(SO_REUSEADDR) failed");
+
+    if (::bind(globalSocketUDP, (const struct sockaddr *)&sender_addr,
+               sizeof(sender_addr)) < 0)
+    {
+        perror("socket binding failed");
+        exit(1);
+    }
+
     // read data from file
     FILE *f;
     f = fopen(filename, "rb");
