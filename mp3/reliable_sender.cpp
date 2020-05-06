@@ -59,16 +59,51 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
     size_t newLen = fread(data, sizeof(char), bytesToTransfer, f);
 
     // send data - sliding window algorithm begins
+    bool readDone = false; // to know when to stop reading, first step to ending program
+
+    // sending data structures
+    char frame[FRAME_SIZE];
+
+    // DATA SIZE - 9 bytes in frame before data
+    int maxDataSize = FRAME_SIZE - 9; //
+    char data[maxDataSize];
+    int dataSize;
 
     // receiving data structures
     socklen_t recvAddrLen = sizeof(recv_addr);
     char recvBuf[FRAME_SIZE];
     int bytesRecvd;
 
-    // sending data structures
-    char frame[FRAME_SIZE];
-
     // TODO: algo
+
+    while (!readDone)
+    {
+        // read a frame
+        dataSize = fread(frame, 1, maxDataSize, f);
+        if (dataSize == maxDataSize)
+        {
+            char temp[1];
+            int next_buffer_size = fread(temp, 1, 1, f);
+
+            // if that's the end of the file, then its the last frame
+            if (next_buffer_size == 0)
+            {
+                readDone = true;
+            }
+        }
+        else if (dataSize < maxDataSize)
+        {
+            readDone = true;
+        }
+
+        bool sendDone = false;
+        while (!sendDone)
+        {
+
+            sendDone = true;
+        }
+    }
+
     // send data
     if (sendto(globalSocketUDP, frame, sizeof(frame), 0, (struct sockaddr *)&recv_addr, sizeof(recv_addr)) < 0)
     {
