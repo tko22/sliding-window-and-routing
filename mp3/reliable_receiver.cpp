@@ -1,17 +1,27 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/socket.h>
-#include <string.h>
+#include <iomanip>
+#include <chrono>
+#include <arpa/inet.h>
 #include <errno.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/types.h>
 
 //TODO: Get better values
 #define RWS 8           //
 #define MAX_SEQ_NO 16   // max sequence number (15) + 1
-#define FRAME_SIZE 1500 // MTU in network, constant for simplicity
+#define FRAME_SIZE 1472 // MTU in network, constant for simplicity
 
 char buf[RWS][FRAME_SIZE]; // RWS frame buffers
 int present[RWS];          // are frame buffers full, initialized to 0
 int NFE = 0;               // next frame expected
+
+struct sockaddr_in recv_addr, sender_addr;
+int globalSocketUDP, sender_fd;
 
 void writeToFile(char *destinationFile)
 {
@@ -23,6 +33,7 @@ void writeToFile(char *destinationFile)
 
 void handleRecvFrame(char *data, int seq_no)
 {
+
     int idx;
 
     if (((seq_no + (MAX_SEQ_NO - NFE)) % MAX_SEQ_NO) < RWS)
@@ -65,15 +76,52 @@ void handleRecvFrame(char *data, int seq_no)
 
 void reliablyReceive(unsigned short int myUDPport, char *destinationFile)
 {
+    memset(&recv_addr, 0, sizeof recv_addr);
 
-    // some udp recvfrom stuff
-    // setup listener and stuff
+    recv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    recv_addr.sin_port = htons(myUDPport);
+    recv_addr.sin_family = AF_INET;
 
-    // Received Frame
-    // handleRecvFrame(data, seq_no)
+    // create UDP socket
+    if ((globalSocketUDP = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+    {
+        perror("socket");
+        exit(1);
+    }
 
-    // already have data, write to file
-    writeToFile(destinationFile);
+    // bind receiver address to socket descriptor
+    if (::bind(globalSocketUDP, (struct sockaddr *)&recv_addr, sizeof(struct sockaddr_in)) < 0)
+    {
+        perror("bind");
+        close(globalSocketUDP);
+        exit(1);
+    }
+
+    while (1)
+    {
+        char fromAddrStr[100];
+        socklen_t senderAddrLen;
+        char recvBuf[FRAME_SIZE];
+
+        int bytesRecvd;
+        senderAddrLen = sizeof(sender_addr);
+
+        // recv frame
+        if ((bytesRecvd = recvfrom(globalSocketUDP, recvBuf, FRAME_SIZE, 0,
+                                   (struct sockaddr *)&sender_addr, &senderAddrLen)) == -1)
+        {
+            perror("connectivity listener: recvfrom failed");
+            exit(1);
+        }
+
+        inet_ntop(AF_INET, &sender_addr.sin_addr, fromAddrStr, 100);
+
+        // Received Frame
+        // handleRecvFrame(data, seq_no);
+
+        // already have data, write to file
+        writeToFile(destinationFile);
+    }
 }
 
 int main(int argc, char **argv)

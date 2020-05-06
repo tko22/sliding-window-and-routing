@@ -13,6 +13,8 @@
 #define SWS 8         // sender
 #define MAX_SEQ_NO 16 // max sequence number (15) + 1
 
+#define FRAME_SIZE 1472 // max framesize
+
 struct sockaddr_in recv_addr, sender_addr;
 int globalSocketUDP;
 
