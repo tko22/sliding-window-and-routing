@@ -20,25 +20,32 @@
 #define ACK_SIZE 5      // end (1 byte) + seq no (4 bytes)
 
 char buf[RWS][FRAME_SIZE]; // RWS frame buffers
-int present[RWS];          // are frame buffers full, initialized to 0
-int NFE = 0;               // next frame expected
+int buf_data_size[RWS];
+int present[RWS]; // are frame buffers full, initialized to 0
+int NFE = 0;      // next frame expected
+int endSeqNum = -1;
 
 struct sockaddr_in recv_addr, sender_addr;
 int globalSocketUDP;
 
-void writeToFile(char *destinationFile)
+void writeToFile(FILE *fd, char *buf, int size)
 {
-
-    FILE *fd;
-    fd = fopen(destinationFile, "w");
-    // fwrite(buf, sizeof(char), numbytes, fd);
+    fwrite(buf, sizeof(char), size, fd);
 }
 
-void handleRecvFrame(char *data, int seq_no)
+bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd)
 {
-
     int idx;
     char ack_frame[4];
+    bool reachedEnd = false;
+
+    // set end sequence number
+    // receiving last frame doesn't mean you should end program
+    // need to account for lost previous frames
+    if (end == 1)
+    {
+        endSeqNum = seq_no;
+    }
 
     if (((seq_no + (MAX_SEQ_NO - NFE)) % MAX_SEQ_NO) < RWS)
     {
@@ -56,8 +63,13 @@ void handleRecvFrame(char *data, int seq_no)
     // if so mark received and copy to buffer
     if (!present[idx])
     {
-        present[idx] = 1;                   // mark received
-        memcpy(buf[idx], data, FRAME_SIZE); // copy data over to buffer
+        present[idx] = 1;                  // mark received
+        memcpy(buf[idx], data, data_size); // copy data over to buffer
+
+        // write data size to know how much to copy over
+        // because frame includes other data seqNum, data_size, etc
+        // so its not exactly FRAME_SIZE big
+        buf_data_size[idx] = data_size;
     }
 
     // figure out what acknowledgement to send
@@ -71,20 +83,33 @@ void handleRecvFrame(char *data, int seq_no)
         if (!present[idx])
             break;
 
-        //TODO: pass to the app (buf[idx]) since it exists
-        present[idx] = 0; // mark buffer empty
+        // pass to the app (buf[idx]) since it exists
+        writeToFile(fd, buf[idx], buf_data_size[data_size]);
+
+        present[idx] = 0;       // mark buffer empty
+        buf_data_size[idx] = 0; // reset datasize array index
     }
 
     // remember to wrap
     // advance NFE to first missing frame
     NFE = (NFE + i) % MAX_SEQ_NO;
 
-    // send ack for ((NFE + MAX_SEQ_NO - 1) % MAX_SEQ_NO)
-
+    // send ack for for predecessor of NFE
+    // ((NFE + MAX_SEQ_NO - 1) % MAX_SEQ_NO)
+    // if NFE=0, then it goes to 15...
     int ack_seq = ((NFE + MAX_SEQ_NO - 1) % MAX_SEQ_NO);
 
     create_ack_frame(ack_frame, ack_seq);
     sendto(globalSocketUDP, ack_frame, sizeof(ack_frame), 0, (const struct sockaddr *)&sender_addr, sizeof(sender_addr));
+
+    // if the last frame written (ack_seq, predecessor of NFE) has the same seq num
+    // as end seq num, we know we can close the program
+    if (endSeqNum >= 0 && ack_seq == endSeqNum)
+    {
+        reachedEnd = true;
+    }
+
+    return reachedEnd;
 }
 
 void reliablyReceive(unsigned short int myUDPport, char *destinationFile)
@@ -111,6 +136,9 @@ void reliablyReceive(unsigned short int myUDPport, char *destinationFile)
         exit(1);
     }
 
+    FILE *fd;
+    fd = fopen(destinationFile, "w");
+
     while (1)
     {
         char fromAddrStr[100];
@@ -133,16 +161,23 @@ void reliablyReceive(unsigned short int myUDPport, char *destinationFile)
         // Received Frame
         int seq_no;
         char data[FRAME_SIZE];
-        int data_size = FRAME_SIZE; // sizeof(data)?
+        int data_size; // sizeof(data)?
         int end;
         read_send_frame(recvBuf, &seq_no, data, &data_size, &end);
 
         // handle frame, decide what ack to send
-        handleRecvFrame(data, seq_no);
+        bool is_end = handleRecvFrame(data, seq_no, data_size, end, fd);
 
-        // already have data, write to file
-        writeToFile(destinationFile);
+        // end of transport, when is_end == true
+        // break out of loop, closing program
+        if (is_end == true)
+        {
+            break;
+        }
     }
+
+    fflush(fd);
+    fclose(fd);
 }
 
 int main(int argc, char **argv)
