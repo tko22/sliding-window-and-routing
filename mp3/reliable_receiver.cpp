@@ -23,8 +23,8 @@ char buf[RWS][FRAME_SIZE]; // RWS frame buffers
 int present[RWS];          // are frame buffers full, initialized to 0
 int NFE = 0;               // next frame expected
 
-extern struct sockaddr_in recv_addr, sender_addr;
-extern int globalSocketUDP;
+struct sockaddr_in recv_addr, sender_addr;
+int globalSocketUDP;
 
 void writeToFile(char *destinationFile)
 {
@@ -38,11 +38,15 @@ void handleRecvFrame(char *data, int seq_no)
 {
 
     int idx;
+    char ack_frame[4];
 
     if (((seq_no + (MAX_SEQ_NO - NFE)) % MAX_SEQ_NO) < RWS)
     {
-        // ignore frame
+        // ignore frame (seq_no)
         // send ack though
+        create_ack_frame(ack_frame, seq_no);
+        sendto(globalSocketUDP, ack_frame, sizeof(ack_frame), 0, (const struct sockaddr *)&sender_addr, sizeof(sender_addr));
+        return;
     }
 
     // calculate index into data structure (present + buf)
@@ -75,8 +79,8 @@ void handleRecvFrame(char *data, int seq_no)
     // advance NFE to first missing frame
     NFE = (NFE + i) % MAX_SEQ_NO;
 
-    //TODO: send ack for ((NFE + MAX_SEQ_NO - 1) % MAX_SEQ_NO)
-    char ack_frame[4];
+    // send ack for ((NFE + MAX_SEQ_NO - 1) % MAX_SEQ_NO)
+
     int ack_seq = ((NFE + MAX_SEQ_NO - 1) % MAX_SEQ_NO);
 
     create_ack_frame(ack_frame, ack_seq);
@@ -132,6 +136,8 @@ void reliablyReceive(unsigned short int myUDPport, char *destinationFile)
         int data_size = FRAME_SIZE; // sizeof(data)?
         int end;
         read_send_frame(recvBuf, &seq_no, data, &data_size, &end);
+
+        // handle frame, decide what ack to send
         handleRecvFrame(data, seq_no);
 
         // already have data, write to file

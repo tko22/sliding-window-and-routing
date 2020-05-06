@@ -17,8 +17,8 @@
 
 #define FRAME_SIZE 1472 // max framesize
 
-extern struct sockaddr_in recv_addr, sender_addr;
-extern int globalSocketUDP;
+struct sockaddr_in recv_addr, sender_addr;
+int globalSocketUDP;
 
 void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *filename, unsigned long long int bytesToTransfer)
 {
