@@ -10,13 +10,15 @@
 #include <unistd.h>
 #include <string.h>
 
+#include "utils.cpp"
+
 #define SWS 8         // sender
 #define MAX_SEQ_NO 16 // max sequence number (15) + 1
 
 #define FRAME_SIZE 1472 // max framesize
 
-struct sockaddr_in recv_addr, sender_addr;
-int globalSocketUDP;
+extern struct sockaddr_in recv_addr, sender_addr;
+extern int globalSocketUDP;
 
 void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *filename, unsigned long long int bytesToTransfer)
 {
@@ -25,12 +27,6 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
     recv_addr.sin_family = AF_INET;
     recv_addr.sin_port = htons(hostUDPport);
     inet_pton(AF_INET, hostname, &recv_addr.sin_addr);
-
-    // self
-    memset(&sender_addr, 0, sizeof(sender_addr));
-    sender_addr.sin_family = AF_INET;
-    sender_addr.sin_addr.s_addr = INADDR_ANY;
-    sender_addr.sin_port = htons(0);
 
     // socket() and bind() our socket. We will do all sendto()ing and recvfrom()ing on this one.
     if ((globalSocketUDP = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
@@ -47,12 +43,13 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
     if (setsockopt(globalSocketUDP, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(int)) < 0)
         perror("setsockopt(SO_REUSEADDR) failed");
 
-    if (::bind(globalSocketUDP, (const struct sockaddr *)&sender_addr,
-               sizeof(sender_addr)) < 0)
-    {
-        perror("socket binding failed");
-        exit(1);
-    }
+    // NOT NEEDED BECAUSE USING SENDTO
+    // connect to receiver (server)
+    // if (connect(globalSocketUDP, (struct sockaddr *)&recv_addr, sizeof(recv_addr)) < 0)
+    // {
+    //     printf("\n Error : Connect Failed \n");
+    //     exit(0);
+    // }
 
     // read data from file
     FILE *f;
@@ -60,6 +57,31 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
 
     char data[bytesToTransfer]; //  number of bytes from the specified file to be sent to the receiver
     size_t newLen = fread(data, sizeof(char), bytesToTransfer, f);
+
+    // send data - sliding window algorithm begins
+
+    // receiving data structures
+    socklen_t recvAddrLen = sizeof(recv_addr);
+    char recvBuf[FRAME_SIZE];
+    int bytesRecvd;
+
+    // sending data structures
+    char frame[FRAME_SIZE];
+
+    // TODO: algo
+    // send data
+    if (sendto(globalSocketUDP, frame, sizeof(frame), 0, (struct sockaddr *)&recv_addr, sizeof(recv_addr)) < 0)
+    {
+        perror("sending: sendto failed");
+    }
+
+    // waiting for response, from the server
+    if ((bytesRecvd = recvfrom(globalSocketUDP, recvBuf, 1000, 0,
+                               (struct sockaddr *)&recv_addr, &recvAddrLen)) == -1)
+    {
+        perror("listener: recvfrom failed");
+        exit(1);
+    }
 }
 
 int main(int argc, char **argv)

@@ -11,17 +11,20 @@
 #include <string.h>
 #include <sys/types.h>
 
+#include "utils.cpp"
+
 //TODO: Get better values
 #define RWS 8           //
 #define MAX_SEQ_NO 16   // max sequence number (15) + 1
 #define FRAME_SIZE 1472 // MTU in network, constant for simplicity
+#define ACK_SIZE 5      // end (1 byte) + seq no (4 bytes)
 
 char buf[RWS][FRAME_SIZE]; // RWS frame buffers
 int present[RWS];          // are frame buffers full, initialized to 0
 int NFE = 0;               // next frame expected
 
-struct sockaddr_in recv_addr, sender_addr;
-int globalSocketUDP, sender_fd;
+extern struct sockaddr_in recv_addr, sender_addr;
+extern int globalSocketUDP;
 
 void writeToFile(char *destinationFile)
 {
@@ -71,13 +74,20 @@ void handleRecvFrame(char *data, int seq_no)
     // remember to wrap
     // advance NFE to first missing frame
     NFE = (NFE + i) % MAX_SEQ_NO;
+
     //TODO: send ack for ((NFE + MAX_SEQ_NO - 1) % MAX_SEQ_NO)
+    char ack_frame[4];
+    int ack_seq = ((NFE + MAX_SEQ_NO - 1) % MAX_SEQ_NO);
+
+    create_ack_frame(ack_frame, ack_seq);
+    sendto(globalSocketUDP, ack_frame, sizeof(ack_frame), 0, (const struct sockaddr *)&sender_addr, sizeof(sender_addr));
 }
 
 void reliablyReceive(unsigned short int myUDPport, char *destinationFile)
 {
     memset(&recv_addr, 0, sizeof recv_addr);
 
+    // accept all connections to machine
     recv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     recv_addr.sin_port = htons(myUDPport);
     recv_addr.sin_family = AF_INET;
@@ -117,7 +127,12 @@ void reliablyReceive(unsigned short int myUDPport, char *destinationFile)
         inet_ntop(AF_INET, &sender_addr.sin_addr, fromAddrStr, 100);
 
         // Received Frame
-        // handleRecvFrame(data, seq_no);
+        int seq_no;
+        char data[FRAME_SIZE];
+        int data_size = FRAME_SIZE; // sizeof(data)?
+        int end;
+        read_send_frame(recvBuf, &seq_no, data, &data_size, &end);
+        handleRecvFrame(data, seq_no);
 
         // already have data, write to file
         writeToFile(destinationFile);
