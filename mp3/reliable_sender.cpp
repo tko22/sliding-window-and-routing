@@ -87,6 +87,9 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
     int nextBufIdx = 0;
 
     // send data - sliding window algorithm begins
+
+    // TODO: setup thread to handle acks
+
     bool sendDone = false;
     while (!sendDone)
     {
@@ -101,6 +104,14 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
             // LAR = -1 or 7, i = 0 -> idx = 0
             // LAR = -1 or 7, i = 7 -> idx = 7
             idx = (i + LAR + 1) % SWS;
+
+            // if LAR = 7, i = 0 -> seq_no = 8
+            // if LAR = 15, i = 0 -> seq_no = 0
+            // if LAR = 0, i = 1 (2nd frame in window) -> seq_no = 2
+            int seq_no = (LAR + i + 1) % MAX_SEQ_NO; // TODO: DOUBLE CHECK if correct
+
+            // TODO: if packet timed out, frame hasn't been sent, send it
+            // else don't send
 
             char frame[FRAME_SIZE];
             memset(&frame, 0, sizeof(frame));
@@ -133,10 +144,6 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
             memcpy(buffer + (nextBufIdx * sizeof(char)), windowBuf[idx], cpySize);
 
             // *** SEND PACKET  ***//
-            // if LAR = 7, i = 0 -> seq_no = 8
-            // if LAR = 15, i = 0 -> seq_no = 0
-            // if LAR = 0, i = 1 (2nd frame in window) -> seq_no = 2
-            int seq_no = (LAR + i + 1) % MAX_SEQ_NO; // TODO: DOUBLE CHECK if correct
             int sendSize = create_send_frame(frame, seq_no, windowBuf[idx], cpySize, isEnd);
             // send data
             if (sendto(globalSocketUDP, frame, sendSize, 0, (struct sockaddr *)&recv_addr, sizeof(recv_addr)) < 0)
@@ -156,17 +163,15 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
             }
         }
 
-        // TODO: handle ACKS
+        // TODO: check whether to move LAR or not
 
         // waiting for response, from the server
-        if ((bytesRecvd = recvfrom(globalSocketUDP, recvBuf, 1000, 0,
-                                   (struct sockaddr *)&recv_addr, &recvAddrLen)) == -1)
-        {
-            perror("listener: recvfrom failed");
-            exit(1);
-        }
-
-        sendDone = true;
+        // if ((bytesRecvd = recvfrom(globalSocketUDP, recvBuf, 1000, 0,
+        //                            (struct sockaddr *)&recv_addr, &recvAddrLen)) == -1)
+        // {
+        //     perror("listener: recvfrom failed");
+        //     exit(1);
+        // }
     }
 }
 
