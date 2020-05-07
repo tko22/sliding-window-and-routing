@@ -196,3 +196,27 @@ Group Status: Group of 2
 ===================== End =====================
 
 
+=============== Auto-grader Test ===============
+Code Pull Time: 2020-05-05 21:22:56.730611
+Test Commit ID: 1bad0e289565ad7a953edb7768bd29ff7f0b8800
+Group Status: Group of 2
+----------------- Test Results ----------------
+-100	Compile: Failed.
+Compilation failed with:
+reliable_sender.cpp: In function ‘void reliablyTransfer(char*, short unsigned int, char*, long long unsigned int)’:
+reliable_sender.cpp:69:26: error: conflicting declaration ‘char data [maxDataSize]’
+     char data[maxDataSize];
+                          ^
+reliable_sender.cpp:58:10: note: previous declaration as ‘char data [bytesToTransfer]’
+     char data[bytesToTransfer]; //  number of bytes from the specified file to be sent to the receiver
+          ^~~~
+Makefile:12: recipe for target 'reliable_sender' failed
+make: *** [reliable_sender] Error 1
+ 
+
+-0	Late Penalty: Last commit happens before due.
+-------------------- Score --------------------
+0/100
+===================== End =====================
+
+
