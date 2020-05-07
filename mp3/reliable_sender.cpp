@@ -9,6 +9,9 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <string.h>
+#include <chrono>
+#include <time.h>
+#include <sys/time.h>
 
 #include "utils.cpp"
 
@@ -16,9 +19,20 @@
 #define MAX_SEQ_NO 16 // max sequence number (15) + 1
 
 #define FRAME_SIZE 1472 // max framesize
+#define TIMEOUT 10
+#define MAX_DATA_SIZE FRAME_SIZE - 9
 
 struct sockaddr_in recv_addr, sender_addr;
 int globalSocketUDP;
+
+// DATA SIZE - 9 bytes in frame before data
+char windowBuf[SWS][MAX_DATA_SIZE];
+int hasSent[SWS];                   // frame in window has been sent
+int acked[SWS];                     // frame ack received
+struct timeval windowSendTime[SWS]; // tracking the send times of each frame in window
+
+int LAR = -1; // last ack received
+int LFS = 0;  // last frame sent
 
 void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *filename, unsigned long long int bytesToTransfer)
 {
@@ -55,18 +69,14 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
     FILE *f;
     f = fopen(filename, "rb");
 
-    char data[bytesToTransfer]; //  number of bytes from the specified file to be sent to the receiver
-    size_t newLen = fread(data, sizeof(char), bytesToTransfer, f);
-
-    // send data - sliding window algorithm begins
-    bool readDone = false; // to know when to stop reading, first step to ending program
+    // read file to buffer, only send amount told to send
+    // TODO: check if we need to handle wehther bytesToTransfer is bigger
+    // than file size
+    char buffer[bytesToTransfer]; //  number of bytes from the specified file to be sent to the receiver
+    size_t newLen = fread(buffer, sizeof(char), bytesToTransfer, f);
 
     // sending data structures
-    char frame[FRAME_SIZE];
-
-    // DATA SIZE - 9 bytes in frame before data
-    int maxDataSize = FRAME_SIZE - 9; //
-    char data[maxDataSize];
+    char data[MAX_DATA_SIZE];
     int dataSize;
 
     // receiving data structures
@@ -74,48 +84,89 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
     char recvBuf[FRAME_SIZE];
     int bytesRecvd;
 
-    // TODO: algo
+    int nextBufIdx = 0;
 
-    while (!readDone)
+    // send data - sliding window algorithm begins
+    bool sendDone = false;
+    while (!sendDone)
     {
-        // read a frame
-        dataSize = fread(frame, 1, maxDataSize, f);
-        if (dataSize == maxDataSize)
-        {
-            char temp[1];
-            int next_buffer_size = fread(temp, 1, 1, f);
+        // TODO: algo
+        int idx;
+        int isEnd;
 
-            // if that's the end of the file, then its the last frame
-            if (next_buffer_size == 0)
+        // *** Send all frames in window ***/
+        for (int i = 0; i < SWS; i++)
+        {
+            // get the actual index from seq no for window data structures
+            // LAR = -1 or 7, i = 0 -> idx = 0
+            // LAR = -1 or 7, i = 7 -> idx = 7
+            idx = (i + LAR + 1) % SWS;
+
+            char frame[FRAME_SIZE];
+            memset(&frame, 0, sizeof(frame));
+
+            // TODO: double check if cpy size needs sizeof(char)
+            // checks whether its the end of the
+            int cpySize;
+            if (nextBufIdx + MAX_DATA_SIZE < bytesToTransfer)
             {
-                readDone = true;
+                cpySize = (bytesToTransfer - nextBufIdx) * sizeof(char);
+                isEnd = 1;
+
+                // break out of loop if there isn't any more to be copied
+                // so we won't send a packet with 0 byte data
+                if (cpySize == 0)
+                {
+                    break;
+                }
+            }
+            else
+            {
+                // normal copy size
+                cpySize = MAX_DATA_SIZE * sizeof(char);
+                // shift nextBufIdx by MAX_DATA_SIZE (since MAX_DATA_SIZE is in bytes/sizeof(char))
+                nextBufIdx += MAX_DATA_SIZE;
+            }
+
+            // copy over data to windowBuf, which temporarily stores the
+            // the data for each window frame
+            memcpy(buffer + (nextBufIdx * sizeof(char)), windowBuf[idx], cpySize);
+
+            // *** SEND PACKET  ***//
+            // if LAR = 7, i = 0 -> seq_no = 8
+            // if LAR = 15, i = 0 -> seq_no = 0
+            // if LAR = 0, i = 1 (2nd frame in window) -> seq_no = 2
+            int seq_no = (LAR + i + 1) % MAX_SEQ_NO; // TODO: DOUBLE CHECK if correct
+            int sendSize = create_send_frame(frame, seq_no, windowBuf[idx], cpySize, isEnd);
+            // send data
+            if (sendto(globalSocketUDP, frame, sendSize, 0, (struct sockaddr *)&recv_addr, sizeof(recv_addr)) < 0)
+            {
+                perror("sending: sendto failed");
+                exit(1);
+            }
+
+            // mark frame sent and time sent
+            hasSent[idx] = 1;
+            gettimeofday(&windowSendTime[idx], 0);
+
+            // break out of loop if it is the last frame of entire program that is sent
+            if (isEnd == 1)
+            {
+                break;
             }
         }
-        else if (dataSize < maxDataSize)
+
+        // TODO: handle ACKS
+
+        // waiting for response, from the server
+        if ((bytesRecvd = recvfrom(globalSocketUDP, recvBuf, 1000, 0,
+                                   (struct sockaddr *)&recv_addr, &recvAddrLen)) == -1)
         {
-            readDone = true;
+            perror("listener: recvfrom failed");
+            exit(1);
         }
 
-        bool sendDone = false;
-        while (!sendDone)
-        {
-
-            sendDone = true;
-        }
-    }
-
-    // send data
-    if (sendto(globalSocketUDP, frame, sizeof(frame), 0, (struct sockaddr *)&recv_addr, sizeof(recv_addr)) < 0)
-    {
-        perror("sending: sendto failed");
-    }
-
-    // waiting for response, from the server
-    if ((bytesRecvd = recvfrom(globalSocketUDP, recvBuf, 1000, 0,
-                               (struct sockaddr *)&recv_addr, &recvAddrLen)) == -1)
-    {
-        perror("listener: recvfrom failed");
-        exit(1);
+        sendDone = true;
     }
 }
 

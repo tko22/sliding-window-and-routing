@@ -53,7 +53,7 @@ bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd)
         // send ack though
         create_ack_frame(ack_frame, seq_no);
         sendto(globalSocketUDP, ack_frame, sizeof(ack_frame), 0, (const struct sockaddr *)&sender_addr, sizeof(sender_addr));
-        return;
+        return false;
     }
 
     // calculate index into data structure (present + buf)
@@ -175,6 +175,8 @@ void reliablyReceive(unsigned short int myUDPport, char *destinationFile)
             break;
         }
     }
+
+    // TODO: maybe send another couple acks to make sure the last ack is received
 
     fflush(fd);
     fclose(fd);
