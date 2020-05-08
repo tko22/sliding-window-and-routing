@@ -17,7 +17,7 @@
 #define RWS 8           //
 #define MAX_SEQ_NO 16   // max sequence number (15) + 1
 #define FRAME_SIZE 1472 // MTU in network, constant for simplicity
-#define ACK_SIZE 5      // end (1 byte) + seq no (4 bytes)
+#define ACK_SIZE 4      // end (1 byte) + seq no (4 bytes)
 
 char buf[RWS][FRAME_SIZE]; // RWS frame buffers
 int buf_data_size[RWS];
@@ -36,7 +36,7 @@ void writeToFile(FILE *fd, char *buf, int size)
 bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd)
 {
     int idx;
-    char ack_frame[4];
+    char ack_frame[ACK_SIZE];
     bool reachedEnd = false;
 
     // set end sequence number
@@ -139,6 +139,7 @@ void reliablyReceive(unsigned short int myUDPport, char *destinationFile)
     FILE *fd;
     fd = fopen(destinationFile, "w");
 
+    int end_seq_no;
     while (1)
     {
         char fromAddrStr[100];
@@ -172,11 +173,19 @@ void reliablyReceive(unsigned short int myUDPport, char *destinationFile)
         // break out of loop, closing program
         if (is_end == true)
         {
+            end_seq_no = ((NFE + MAX_SEQ_NO - 1) % MAX_SEQ_NO);
             break;
         }
     }
 
-    // TODO: maybe send another couple acks to make sure the last ack is received
+    // TODO: run until you don't receive a message for 10 seconds
+
+    // currently, just sending the last ack for last seq no 3 times just in case it gets lost lol
+    char ack_frame[ACK_SIZE];
+    create_ack_frame(ack_frame, end_seq_no);
+    sendto(globalSocketUDP, ack_frame, sizeof(ack_frame), 0, (const struct sockaddr *)&sender_addr, sizeof(sender_addr));
+    sendto(globalSocketUDP, ack_frame, sizeof(ack_frame), 0, (const struct sockaddr *)&sender_addr, sizeof(sender_addr));
+    sendto(globalSocketUDP, ack_frame, sizeof(ack_frame), 0, (const struct sockaddr *)&sender_addr, sizeof(sender_addr));
 
     fflush(fd);
     fclose(fd);

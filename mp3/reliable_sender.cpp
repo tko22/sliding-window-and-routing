@@ -30,16 +30,21 @@
 struct sockaddr_in recv_addr, sender_addr;
 int globalSocketUDP;
 
-// DATA SIZE - 9 bytes in frame before data
-char windowBuf[SWS][MAX_DATA_SIZE];
+std::mutex window_mutex;
+
+char windowBuf[SWS][MAX_DATA_SIZE]; // DATA SIZE - 9 bytes in frame before data
+
+// ** ALL USED WITHIN MUTEX **//
 int hasSent[SWS];                   // frame in window has been sent
 int acked[SWS];                     // frame ack received
 struct timeval windowSendTime[SWS]; // tracking the send times of each frame in window
+int isEnd;                          // has sent last frame
+int lastFrameSeqNo;
+bool sendDone = false;
 
 int LAR = -1; // last ack received
 int LFS = 0;  // last frame sent
-
-std::mutex window_mutex;
+// ** ** ** ** ** ** ** **  **//
 
 void handleAckThread()
 {
@@ -57,6 +62,8 @@ void handleAckThread()
             perror("listener: recvfrom failed");
             exit(1);
         }
+
+        read_ack(ack, &seq_no);
 
         window_mutex.lock();
 
@@ -134,6 +141,7 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
     // than file size
     char buffer[bytesToTransfer]; //  number of bytes from the specified file to be sent to the receiver
     size_t newLen = fread(buffer, sizeof(char), bytesToTransfer, f);
+    fclose(f);
 
     // sending data structures
     char data[MAX_DATA_SIZE];
@@ -151,11 +159,9 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
     // setup thread to handle acks
     std::thread recv_ack_thread(handleAckThread);
 
-    bool sendDone = false;
-    while (!sendDone)
+    while (true)
     {
         int idx;
-        int isEnd;
 
         // *** Send all frames in window ***/
         for (int i = 0; i < SWS; i++)
@@ -176,23 +182,42 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
             // if LAR = 0, i = 1 (2nd frame in window) -> seq_no = 2
             int seq_no = (LAR + i + 1) % MAX_SEQ_NO; // TODO: DOUBLE CHECK if correct
 
+            // copy to variable so we can unlock mutex quickly
+            int frameHasSent = hasSent[idx];
+            int frameHasAcked = acked[idx];
+            int frameSentTime = windowSendTime[idx].tv_sec;
+            window_mutex.unlock();
             // if packet timed out, frame hasn't been sent, send it
             // else don't send
-            if (hasSent[idx] == 0 || (acked[idx] == 0 && now.tv_sec - windowSendTime[idx].tv_sec >= 10))
+            if (frameHasSent == 0 || (frameHasAcked == 0 && now.tv_sec - frameSentTime >= 10))
             {
 
                 // TODO: double check if cpy size needs sizeof(char)
                 // checks whether its the end of the
                 int cpySize;
-                if (nextBufIdx + MAX_DATA_SIZE < bytesToTransfer)
+                if (bytesToTransfer - nextBufIdx < MAX_DATA_SIZE)
                 {
+                    // sending last frame, or last frame already sent
                     cpySize = (bytesToTransfer - nextBufIdx) * sizeof(char);
+
+                    window_mutex.lock();
                     isEnd = 1;
+                    lastFrameSeqNo = seq_no;
+                    window_mutex.unlock();
 
                     // break out of loop if there isn't any more to be copied
                     // so we won't send a packet with 0 byte data
+                    // this will occur when bytesToTransfer / MAX_DATA_SIZE is an integer
+                    // means we are able to cut bytesToTransfer into
+                    // a perfect amount of fully filled packets
                     if (cpySize == 0)
                     {
+                        window_mutex.lock();
+                        isEnd = 1;
+                        // seq no was the last seq no before this seq_no
+                        lastFrameSeqNo = (seq_no - 1 + MAX_SEQ_NO) % MAX_SEQ_NO;
+                        window_mutex.unlock();
+
                         break;
                     }
                 }
@@ -220,6 +245,7 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
                     exit(1);
                 }
 
+                window_mutex.lock();
                 // mark frame sent and time sent
                 hasSent[idx] = 1;
                 gettimeofday(&windowSendTime[idx], 0);
@@ -227,6 +253,7 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
 
                 // mark ack sent 0, so we know to check for timeout
                 acked[idx] = 0;
+                window_mutex.unlock();
 
                 // break out of loop if it is the last frame of entire program that is sent
                 if (isEnd == 1)
@@ -234,9 +261,20 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
                     break;
                 }
             }
-            window_mutex.unlock();
         }
+        window_mutex.lock();
+        if (sendDone == true)
+        {
+            // unlock mutex is about to break out of loop, ending program...
+            window_mutex.unlock();
+            break;
+        }
+        // unlock mutex if not end of program
+        window_mutex.unlock();
     }
+
+    // close thread
+    recv_ack_thread.detach();
 }
 
 int main(int argc, char **argv)
