@@ -50,7 +50,7 @@ bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd)
     if (((seq_no + (MAX_SEQ_NO - NFE)) % MAX_SEQ_NO) < RWS)
     {
         // ignore frame (seq_no)
-        // send ack though
+        // send ack though since it may be because an ack was lost and sender didnt know you received it
         create_ack_frame(ack_frame, seq_no);
         sendto(globalSocketUDP, ack_frame, sizeof(ack_frame), 0, (const struct sockaddr *)&sender_addr, sizeof(sender_addr));
         return false;

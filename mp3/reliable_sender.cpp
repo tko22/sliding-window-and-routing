@@ -12,6 +12,10 @@
 #include <chrono>
 #include <time.h>
 #include <sys/time.h>
+#include <pthread.h>
+#include <stdlib.h>
+#include <mutex>
+#include <thread>
 
 #include "utils.cpp"
 
@@ -21,6 +25,7 @@
 #define FRAME_SIZE 1472 // max framesize
 #define TIMEOUT 10
 #define MAX_DATA_SIZE FRAME_SIZE - 9
+#define ACK_SIZE 5 // end (1 byte) + seq no (4 bytes)
 
 struct sockaddr_in recv_addr, sender_addr;
 int globalSocketUDP;
@@ -33,6 +38,61 @@ struct timeval windowSendTime[SWS]; // tracking the send times of each frame in 
 
 int LAR = -1; // last ack received
 int LFS = 0;  // last frame sent
+
+std::mutex window_mutex;
+
+void handleAckThread()
+{
+    char ack[ACK_SIZE];
+    socklen_t recvAddrLen = sizeof(recv_addr);
+    int bytesRecvd;
+    int seq_no;
+
+    while (true)
+    {
+        // waiting for response, from the server
+        if ((bytesRecvd = recvfrom(globalSocketUDP, (char *)ack, ACK_SIZE, 0,
+                                   (struct sockaddr *)&recv_addr, &recvAddrLen)) == -1)
+        {
+            perror("listener: recvfrom failed");
+            exit(1);
+        }
+
+        window_mutex.lock();
+
+        // if inside window
+        // LAR = 15, 0-7 are in window, 15 is not included
+        // TODO: do we need make sure its within < LFS
+        if (((seq_no + (MAX_SEQ_NO - LAR - 1)) % MAX_SEQ_NO) < SWS)
+        {
+            int idx = seq_no % SWS;
+            if (hasSent[idx])
+            {
+                // if received ack for 4th index, and LAR is 2nd index
+                // | 1 | 1 | 0 | 0 | 0 | 0 |
+                // then we assume 3rd is received too | 1 | 1 | 1 | 1 | 0 | 0 |
+                // TODO: make sure server code does that, but im pretty sure it does
+                int new_idx;
+                for (int i = 0; i < idx; i++)
+                {
+                    new_idx = (i + LAR + 1) % SWS;
+
+                    // set hasSent back to 0, moving the window..
+                    hasSent[new_idx] = 0;
+                    acked[new_idx] = 1;
+                }
+                hasSent[idx] = 0;
+                acked[idx] = 1;
+
+                // packet acked is within window => > LAR
+                // make LAR to it then...
+                LAR = seq_no;
+            }
+        }
+
+        window_mutex.unlock();
+    }
+}
 
 void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *filename, unsigned long long int bytesToTransfer)
 {
@@ -88,21 +148,27 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
 
     // send data - sliding window algorithm begins
 
-    // TODO: setup thread to handle acks
+    // setup thread to handle acks
+    std::thread recv_ack_thread(handleAckThread);
 
     bool sendDone = false;
     while (!sendDone)
     {
-        // TODO: algo
         int idx;
         int isEnd;
 
         // *** Send all frames in window ***/
         for (int i = 0; i < SWS; i++)
         {
+            // get time
+            timeval now;
+            gettimeofday(&now, 0);
+
+            window_mutex.lock();
             // get the actual index from seq no for window data structures
-            // LAR = -1 or 7, i = 0 -> idx = 0
+            // LAR = -1 or 7, i = 0 -> idx = 0 (for initial set up)
             // LAR = -1 or 7, i = 7 -> idx = 7
+            // LAR = 15, i = 0 -> idx = 0
             idx = (i + LAR + 1) % SWS;
 
             // if LAR = 7, i = 0 -> seq_no = 8
@@ -110,68 +176,66 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
             // if LAR = 0, i = 1 (2nd frame in window) -> seq_no = 2
             int seq_no = (LAR + i + 1) % MAX_SEQ_NO; // TODO: DOUBLE CHECK if correct
 
-            // TODO: if packet timed out, frame hasn't been sent, send it
+            // if packet timed out, frame hasn't been sent, send it
             // else don't send
-
-            char frame[FRAME_SIZE];
-            memset(&frame, 0, sizeof(frame));
-
-            // TODO: double check if cpy size needs sizeof(char)
-            // checks whether its the end of the
-            int cpySize;
-            if (nextBufIdx + MAX_DATA_SIZE < bytesToTransfer)
+            if (hasSent[idx] == 0 || (acked[idx] == 0 && now.tv_sec - windowSendTime[idx].tv_sec >= 10))
             {
-                cpySize = (bytesToTransfer - nextBufIdx) * sizeof(char);
-                isEnd = 1;
 
-                // break out of loop if there isn't any more to be copied
-                // so we won't send a packet with 0 byte data
-                if (cpySize == 0)
+                // TODO: double check if cpy size needs sizeof(char)
+                // checks whether its the end of the
+                int cpySize;
+                if (nextBufIdx + MAX_DATA_SIZE < bytesToTransfer)
+                {
+                    cpySize = (bytesToTransfer - nextBufIdx) * sizeof(char);
+                    isEnd = 1;
+
+                    // break out of loop if there isn't any more to be copied
+                    // so we won't send a packet with 0 byte data
+                    if (cpySize == 0)
+                    {
+                        break;
+                    }
+                }
+                else
+                {
+                    // normal copy size
+                    cpySize = MAX_DATA_SIZE * sizeof(char);
+                    // shift nextBufIdx by MAX_DATA_SIZE (since MAX_DATA_SIZE is in bytes/sizeof(char))
+                    nextBufIdx += MAX_DATA_SIZE;
+                }
+
+                // copy over data to windowBuf, which temporarily stores the
+                // the data for each window frame
+                memset(windowBuf[idx], '\0', sizeof(windowBuf[idx]));
+                memcpy(buffer + (nextBufIdx * sizeof(char)), windowBuf[idx], cpySize);
+
+                // *** SEND PACKET  ***//
+                char frame[FRAME_SIZE];
+                memset(&frame, '\0', sizeof(frame));
+
+                int sendSize = create_send_frame(frame, seq_no, windowBuf[idx], cpySize, isEnd);
+                if (sendto(globalSocketUDP, frame, sendSize, 0, (struct sockaddr *)&recv_addr, sizeof(recv_addr)) < 0)
+                {
+                    perror("sending: sendto failed");
+                    exit(1);
+                }
+
+                // mark frame sent and time sent
+                hasSent[idx] = 1;
+                gettimeofday(&windowSendTime[idx], 0);
+                LFS = seq_no;
+
+                // mark ack sent 0, so we know to check for timeout
+                acked[idx] = 0;
+
+                // break out of loop if it is the last frame of entire program that is sent
+                if (isEnd == 1)
                 {
                     break;
                 }
             }
-            else
-            {
-                // normal copy size
-                cpySize = MAX_DATA_SIZE * sizeof(char);
-                // shift nextBufIdx by MAX_DATA_SIZE (since MAX_DATA_SIZE is in bytes/sizeof(char))
-                nextBufIdx += MAX_DATA_SIZE;
-            }
-
-            // copy over data to windowBuf, which temporarily stores the
-            // the data for each window frame
-            memcpy(buffer + (nextBufIdx * sizeof(char)), windowBuf[idx], cpySize);
-
-            // *** SEND PACKET  ***//
-            int sendSize = create_send_frame(frame, seq_no, windowBuf[idx], cpySize, isEnd);
-            // send data
-            if (sendto(globalSocketUDP, frame, sendSize, 0, (struct sockaddr *)&recv_addr, sizeof(recv_addr)) < 0)
-            {
-                perror("sending: sendto failed");
-                exit(1);
-            }
-
-            // mark frame sent and time sent
-            hasSent[idx] = 1;
-            gettimeofday(&windowSendTime[idx], 0);
-
-            // break out of loop if it is the last frame of entire program that is sent
-            if (isEnd == 1)
-            {
-                break;
-            }
+            window_mutex.unlock();
         }
-
-        // TODO: check whether to move LAR or not
-
-        // waiting for response, from the server
-        // if ((bytesRecvd = recvfrom(globalSocketUDP, recvBuf, 1000, 0,
-        //                            (struct sockaddr *)&recv_addr, &recvAddrLen)) == -1)
-        // {
-        //     perror("listener: recvfrom failed");
-        //     exit(1);
-        // }
     }
 }
 
