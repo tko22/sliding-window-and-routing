@@ -31,13 +31,14 @@ int globalSocketUDP;
 
 std::mutex window_mutex;
 
-char windowBuf[SWS][MAX_DATA_SIZE]; // DATA SIZE - 9 bytes in frame before data
+char windowBuf[MAX_SEQ_NO][MAX_DATA_SIZE]; // DATA SIZE - 9 bytes in frame before data
+int windowBufSize[MAX_SEQ_NO];
 
 // ** ALL USED WITHIN MUTEX **//
-int hasSent[SWS];                   // frame in window has been sent
-int acked[SWS];                     // frame ack received
-struct timeval windowSendTime[SWS]; // tracking the send times of each frame in window
-int isEnd;                          // has sent last frame
+int hasSent[MAX_SEQ_NO];                   // frame in window has been sent
+int acked[MAX_SEQ_NO];                     // frame ack received
+struct timeval windowSendTime[MAX_SEQ_NO]; // tracking the send times of each frame in window
+int isEnd;                                 // has sent last frame
 int lastFrameSeqNo;
 bool sendDone = false;
 
@@ -66,11 +67,14 @@ void handleAckThread()
             perror("listener: recvfrom failed");
             exit(1);
         }
+
         // get receive time
         timeval receiveTime;
         gettimeofday(&receiveTime, 0);
 
         read_ack(ack, &seq_no);
+        std::cout << "receivedAck seq_no " << seq_no << "\n"
+                  << std::endl;
 
         window_mutex.lock();
 
@@ -80,7 +84,9 @@ void handleAckThread()
         if (((seq_no + (MAX_SEQ_NO - LAR - 1)) % MAX_SEQ_NO) < SWS)
         {
             int idx = seq_no % SWS;
-            if (hasSent[idx])
+            std::cout << "idx in data structure - within SWS" << idx << " - seq _no: " << seq_no << "\n"
+                      << std::endl;
+            if (hasSent[seq_no])
             {
                 // if received ack for 4th index, and LAR is 2nd index
                 // | 1 | 1 | 0 | 0 | 0 | 0 |
@@ -89,7 +95,7 @@ void handleAckThread()
                 int new_idx;
                 for (int i = 0; i < idx; i++)
                 {
-                    new_idx = (i + LAR + 1) % SWS;
+                    new_idx = (i + LAR + 1) % MAX_SEQ_NO;
 
                     // set hasSent back to 0, moving the window..
                     hasSent[new_idx] = 0;
@@ -98,7 +104,7 @@ void handleAckThread()
 
                 // get estimated RTT for RTO (retransmission timeout)
                 //https://www.geeksforgeeks.org/tcp-timers/
-                float t1 = windowSendTime[idx].tv_sec + (windowSendTime[idx].tv_usec / 1000000.0);
+                float t1 = windowSendTime[seq_no].tv_sec + (windowSendTime[seq_no].tv_usec / 1000000.0);
                 float t2 = receiveTime.tv_sec + (receiveTime.tv_usec / 1000000.0);
                 float RTTm = t2 - t1;
 
@@ -117,14 +123,16 @@ void handleAckThread()
                 RTO = RTTs + 4 * RTTd;
 
                 // mark hasSent
-                hasSent[idx] = 0;
-                acked[idx] = 1;
+                hasSent[seq_no] = 0;
+                acked[seq_no] = 1;
                 // no need to change windowSendTime because we don't look at it unless
                 // the idx isn't acked - here we change acked to acked
                 // once we set acked[idx] to 0, then we would update windowSendTime[idx]
 
-                // packet acked is within window => > LAR
-                // make LAR to it then...
+                // packet acked is within window => greater than LAR
+                // acks are cumulative but check just in case
+                // for (idx = (seq_no + 1) % MAX_SEQ_NO; idx <   )
+
                 LAR = seq_no;
             }
         }
@@ -158,11 +166,11 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
 
     // NOT NEEDED BECAUSE USING SENDTO
     // connect to receiver (server)
-    // if (connect(globalSocketUDP, (struct sockaddr *)&recv_addr, sizeof(recv_addr)) < 0)
-    // {
-    //     printf("\n Error : Connect Failed \n");
-    //     exit(0);
-    // }
+    if (connect(globalSocketUDP, (struct sockaddr *)&recv_addr, sizeof(recv_addr)) < 0)
+    {
+        printf("\n Error : Connect Failed \n");
+        exit(0);
+    }
 
     // read data from file
     FILE *f;
@@ -189,7 +197,7 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
     // send data - sliding window algorithm begins
 
     // setup thread to handle acks
-    std::thread recv_ack_thread(handleAckThread);
+    // std::thread recv_ack_thread(handleAckThread);
 
     while (true)
     {
@@ -216,6 +224,7 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
 
             // copy to variable so we can unlock mutex quickly
             int frameHasSent = hasSent[idx];
+            std::cout << "framehassent" << frameHasSent << " for idx: " << idx << " LAR: " << LAR << std::endl;
             int frameHasAcked = acked[idx];
             int frameSentTime = windowSendTime[idx].tv_sec;
             window_mutex.unlock();
@@ -223,54 +232,65 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
             // else don't send
             if (frameHasSent == 0 || (frameHasAcked == 0 && now.tv_sec - frameSentTime >= RTO))
             {
-
-                // TODO: double check if cpy size needs sizeof(char)
-                // checks whether its the end of the
-                int cpySize;
-                if (bytesToTransfer - nextBufIdx < MAX_DATA_SIZE)
+                if (frameHasSent == 0)
                 {
-                    // sending last frame, or last frame already sent
-                    cpySize = (bytesToTransfer - nextBufIdx) * sizeof(char);
-
-                    window_mutex.lock();
-                    isEnd = 1;
-                    lastFrameSeqNo = seq_no;
-                    window_mutex.unlock();
-
-                    // break out of loop if there isn't any more to be copied
-                    // so we won't send a packet with 0 byte data
-                    // this will occur when bytesToTransfer / MAX_DATA_SIZE is an integer
-                    // means we are able to cut bytesToTransfer into
-                    // a perfect amount of fully filled packets
-                    if (cpySize == 0)
+                    std::cout << "NEED TO SEND idx: " << idx << " with seq no: " << seq_no << std::endl;
+                    std::cout << "bytesToSend " << bytesToTransfer - nextBufIdx << std::endl;
+                    // TODO: double check if cpy size needs sizeof(char)
+                    // checks whether its the end of the
+                    int cpySize;
+                    if (bytesToTransfer - nextBufIdx < MAX_DATA_SIZE)
                     {
+                        // sending last frame, or last frame already sent
+                        cpySize = (bytesToTransfer - nextBufIdx) * sizeof(char);
+
                         window_mutex.lock();
                         isEnd = 1;
-                        // seq no was the last seq no before this seq_no
-                        lastFrameSeqNo = (seq_no - 1 + MAX_SEQ_NO) % MAX_SEQ_NO;
+                        lastFrameSeqNo = seq_no;
                         window_mutex.unlock();
 
-                        break;
-                    }
-                }
-                else
-                {
-                    // normal copy size
-                    cpySize = MAX_DATA_SIZE * sizeof(char);
-                    // shift nextBufIdx by MAX_DATA_SIZE (since MAX_DATA_SIZE is in bytes/sizeof(char))
-                    nextBufIdx += MAX_DATA_SIZE;
-                }
+                        std::cout << "END.... last seq_no " << lastFrameSeqNo << " with cpSize: " << cpySize << "\n"
+                                  << std::endl;
+                        // break out of loop if there isn't any more to be copied
+                        // so we won't send a packet with 0 byte data
+                        // this will occur when bytesToTransfer / MAX_DATA_SIZE is an integer
+                        // means we are able to cut bytesToTransfer into
+                        // a perfect amount of fully filled packets
+                        if (cpySize == 0)
+                        {
+                            window_mutex.lock();
+                            isEnd = 1;
+                            // seq no was the last seq no before this seq_no
+                            lastFrameSeqNo = (seq_no - 1 + MAX_SEQ_NO) % MAX_SEQ_NO;
+                            window_mutex.unlock();
 
-                // copy over data to windowBuf, which temporarily stores the
-                // the data for each window frame
-                memset(windowBuf[idx], '\0', sizeof(windowBuf[idx]));
-                memcpy(buffer + (nextBufIdx * sizeof(char)), windowBuf[idx], cpySize);
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        // normal copy size
+                        cpySize = MAX_DATA_SIZE * sizeof(char);
+                        // shift nextBufIdx by MAX_DATA_SIZE (since MAX_DATA_SIZE is in bytes/sizeof(char))
+                        nextBufIdx += MAX_DATA_SIZE;
+                    }
+
+                    std::cout << "cpySize: " << cpySize << "\n"
+                              << std::endl;
+                    // copy over data to windowBuf, which temporarily stores the
+                    // the data for each window frame
+                    memset(windowBuf[idx], '\0', sizeof(windowBuf[idx]));
+                    memcpy(buffer + (nextBufIdx * sizeof(char)), windowBuf[idx], cpySize);
+
+                    // keep track of how much data is in the windowBuf
+                    windowBufSize[idx] = cpySize;
+                }
 
                 // *** SEND PACKET  ***//
                 char frame[FRAME_SIZE];
                 memset(&frame, '\0', sizeof(frame));
 
-                int sendSize = create_send_frame(frame, seq_no, windowBuf[idx], cpySize, isEnd);
+                int sendSize = create_send_frame(frame, seq_no, windowBuf[idx], windowBufSize[idx], isEnd);
                 if (sendto(globalSocketUDP, frame, sendSize, 0, (struct sockaddr *)&recv_addr, sizeof(recv_addr)) < 0)
                 {
                     perror("sending: sendto failed");
@@ -280,6 +300,7 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
                 window_mutex.lock();
                 // mark frame sent and time sent
                 hasSent[idx] = 1;
+                std::cout << "sent idx " << idx << " - marking hasSent" << std::endl;
                 gettimeofday(&windowSendTime[idx], 0);
                 LFS = seq_no;
 
@@ -306,7 +327,7 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
     }
 
     // close thread
-    recv_ack_thread.detach();
+    // recv_ack_thread.detach();
 }
 
 int main(int argc, char **argv)

@@ -35,6 +35,8 @@ void writeToFile(FILE *fd, char *buf, int size)
 
 bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd)
 {
+    std::cout << "\n"
+              << "HANDLING RECEIVE FRAME: " << seq_no << std::endl;
     int idx;
     char ack_frame[ACK_SIZE];
     bool reachedEnd = false;
@@ -47,8 +49,9 @@ bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd)
         endSeqNum = seq_no;
     }
 
-    if (((seq_no + (MAX_SEQ_NO - NFE)) % MAX_SEQ_NO) < RWS)
+    if (((seq_no + (MAX_SEQ_NO - NFE)) % MAX_SEQ_NO) > RWS)
     {
+        std::cout << "outside window seq: " << seq_no << "::: Current NFE: " << NFE << std::endl;
         // ignore frame (seq_no)
         // send ack though since it may be because an ack was lost and sender didnt know you received it
         create_ack_frame(ack_frame, seq_no);
@@ -58,11 +61,12 @@ bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd)
 
     // calculate index into data structure (present + buf)
     idx = (seq_no % RWS);
-
+    std::cout << "idx:" << idx << std::endl;
     // check if we already received it
     // if so mark received and copy to buffer
     if (!present[idx])
     {
+        std::cout << "marking present: idx:" << idx << std::endl;
         present[idx] = 1;                  // mark received
         memcpy(buf[idx], data, data_size); // copy data over to buffer
 
@@ -83,11 +87,14 @@ bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd)
         if (!present[idx])
             break;
 
+        std::cout << "writing i + NFE: " << NFE + i << std::endl;
+        std::cout << "datasize" << buf_data_size[idx] << std::endl;
+        std::cout << "buf[idx]" << buf[idx] << std::endl;
         // pass to the app (buf[idx]) since it exists
-        writeToFile(fd, buf[idx], buf_data_size[data_size]);
-
+        writeToFile(fd, buf[idx], buf_data_size[idx]);
         present[idx] = 0;       // mark buffer empty
         buf_data_size[idx] = 0; // reset datasize array index
+        memset(buf[idx], '\0', sizeof(buf[idx]));
     }
 
     // remember to wrap
@@ -98,6 +105,7 @@ bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd)
     // ((NFE + MAX_SEQ_NO - 1) % MAX_SEQ_NO)
     // if NFE=0, then it goes to 15...
     int ack_seq = ((NFE + MAX_SEQ_NO - 1) % MAX_SEQ_NO);
+    std::cout << "sending ack:" << ack_seq << "new NFE: " << NFE << std::endl;
 
     create_ack_frame(ack_frame, ack_seq);
     sendto(globalSocketUDP, ack_frame, sizeof(ack_frame), 0, (const struct sockaddr *)&sender_addr, sizeof(sender_addr));
