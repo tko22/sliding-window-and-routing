@@ -23,7 +23,6 @@
 #define MAX_SEQ_NO 16 // max sequence number (15) + 1
 
 #define FRAME_SIZE 1472 // max framesize
-#define TIMEOUT 10
 #define MAX_DATA_SIZE FRAME_SIZE - 9
 #define ACK_SIZE 5 // end (1 byte) + seq no (4 bytes)
 
@@ -42,9 +41,14 @@ int isEnd;                          // has sent last frame
 int lastFrameSeqNo;
 bool sendDone = false;
 
+float RTO = 2.0; // retransmission timeout, set to 2s initially
+
 int LAR = -1; // last ack received
 int LFS = 0;  // last frame sent
 // ** ** ** ** ** ** ** **  **//
+
+float RTTs = -1.0; // smoothed RTTs
+float RTTd = -1.0; // RTT deviation
 
 void handleAckThread()
 {
@@ -62,6 +66,9 @@ void handleAckThread()
             perror("listener: recvfrom failed");
             exit(1);
         }
+        // get receive time
+        timeval receiveTime;
+        gettimeofday(&receiveTime, 0);
 
         read_ack(ack, &seq_no);
 
@@ -88,8 +95,33 @@ void handleAckThread()
                     hasSent[new_idx] = 0;
                     acked[new_idx] = 1;
                 }
+
+                // get estimated RTT for RTO (retransmission timeout)
+                //https://www.geeksforgeeks.org/tcp-timers/
+                float t1 = windowSendTime[idx].tv_sec + (windowSendTime[idx].tv_usec / 1000000.0);
+                float t2 = receiveTime.tv_sec + (receiveTime.tv_usec / 1000000.0);
+                float RTTm = t2 - t1;
+
+                // get smoothed RTT and deviated RTTs
+                if (RTTs == -1)
+                    RTTs = RTTm;
+                else
+                    RTTs = (7 / 8) * RTTs + (1 / 8) * RTTm; // 7/8 is from 1-t, where t = 1/8
+
+                if (RTTd == -1)
+                    RTTd = RTTm / 2;
+                else
+                    RTTd = (3 / 4) * RTTd + 1 / 4 * (RTTm - RTTs); // 3/4 is from 1-k, where k = 1/4
+
+                // set RTO
+                RTO = RTTs + 4 * RTTd;
+
+                // mark hasSent
                 hasSent[idx] = 0;
                 acked[idx] = 1;
+                // no need to change windowSendTime because we don't look at it unless
+                // the idx isn't acked - here we change acked to acked
+                // once we set acked[idx] to 0, then we would update windowSendTime[idx]
 
                 // packet acked is within window => > LAR
                 // make LAR to it then...
@@ -189,7 +221,7 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
             window_mutex.unlock();
             // if packet timed out, frame hasn't been sent, send it
             // else don't send
-            if (frameHasSent == 0 || (frameHasAcked == 0 && now.tv_sec - frameSentTime >= 10))
+            if (frameHasSent == 0 || (frameHasAcked == 0 && now.tv_sec - frameSentTime >= RTO))
             {
 
                 // TODO: double check if cpy size needs sizeof(char)
