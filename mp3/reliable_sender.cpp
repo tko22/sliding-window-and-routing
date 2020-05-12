@@ -145,6 +145,8 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
             if ((frameHasSent == 0 && isEnd != 1) || (frameHasSent == 1 && frameHasAcked == 0 && now.tv_sec - frameSentTime >= RTO))
             {
                 std::cout << "NEED TO SEND seq_no: " << seq_no << " with seq no: " << seq_no << std::endl;
+                std::cout << "hasn't been sent: " << (frameHasSent == 0 && isEnd != 1) << std::endl;
+                std::cout << "OR TIMEOUT:  " << (frameHasSent == 1 && frameHasAcked == 0 && now.tv_sec - frameSentTime >= RTO) << std::endl;
                 // frame hasnt been sent and not the end
                 if (frameHasSent == 0 && isEnd != 1)
                 {
@@ -152,6 +154,7 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
                     // TODO: double check if cpy size needs sizeof(char)
                     // checks whether its the end of the
                     int cpySize;
+                    int nextBufIncrement;
                     if (bytesToTransfer - nextBufIdx < MAX_DATA_SIZE)
                     {
                         // sending last frame, or last frame already sent
@@ -160,7 +163,8 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
                         // window_mutex.lock();
                         isEnd = 1;
                         lastFrameSeqNo = seq_no;
-                        nextBufIdx = nextBufIdx += (bytesToTransfer - nextBufIdx);
+                        nextBufIncrement = (bytesToTransfer - nextBufIdx);
+
                         // window_mutex.unlock();
 
                         std::cout
@@ -186,7 +190,7 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
                         // normal copy size
                         cpySize = MAX_DATA_SIZE * sizeof(char);
                         // shift nextBufIdx by MAX_DATA_SIZE (since MAX_DATA_SIZE is in bytes/sizeof(char))
-                        nextBufIdx += MAX_DATA_SIZE;
+                        nextBufIncrement = MAX_DATA_SIZE;
                     }
 
                     std::cout << "cpySize: " << cpySize << std::endl;
@@ -197,6 +201,9 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
                     memcpy(windowBuf[seq_no], buffer + nextBufIdx, cpySize);
                     // keep track of how much data is in the windowBuf
                     windowBufSize[seq_no] = cpySize;
+
+                    // update nextBufIdx
+                    nextBufIdx += nextBufIncrement;
                 }
 
                 // *** SEND PACKET  ***//
