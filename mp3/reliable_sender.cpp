@@ -87,7 +87,6 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
     f = fopen(filename, "rb");
 
     // read file to buffer, only send amount told to send
-    // TODO: check if we need to handle wehther bytesToTransfer is bigger
     // than file size
     char buffer[bytesToTransfer]; //  number of bytes from the specified file to be sent to the receiver
     size_t newLen = fread(buffer, sizeof(char), bytesToTransfer, f);
@@ -107,9 +106,6 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
     // ** ** ** ** ** //
 
     // send data - sliding window algorithm begins
-
-    // setup thread to handle acks
-    // std::thread recv_ack_thread(handleAckThread);
 
     while (true)
     {
@@ -246,8 +242,6 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
         // unlock mutex if not end of program
         // window_mutex.unlock();
 
-        // close thread
-        // recv_ack_thread.detach();
         // ********************** //
 
         // ** WAIT FOR RESPONSE **/
@@ -267,8 +261,8 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
         gettimeofday(&receiveTime, 0);
 
         read_ack(ack, &ack_seq_no);
-        std::cout << "receivedAck seq_no " << ack_seq_no << "\n"
-                  << std::endl;
+        std::cout << "\n---------------------------------------------------" << std::endl;
+        std::cout << "RECEIVED ACK seq_no " << ack_seq_no << std::endl;
 
         // if inside window
         // LAR = 15, 0-7 are in window, 15 is not included
@@ -276,10 +270,10 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
         if (((ack_seq_no + (MAX_SEQ_NO - LAR - 1)) % MAX_SEQ_NO) < SWS)
         {
             // int idx = seq_no % SWS;
-            std::cout << "inside window - seq _no: " << ack_seq_no << "\n"
-                      << std::endl;
+            std::cout << "inside window - seq _no: " << ack_seq_no << std::endl;
             if (hasSent[ack_seq_no])
             {
+                std::cout << "processing... we have sent this ack seq_no: " << ack_seq_no << std::endl;
                 // break out of loop if end reached and last seq no is acked
                 if (lastFrameSeqNo == ack_seq_no && isEnd == 1)
                 {
@@ -352,10 +346,15 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
                         LAR = new_seq;
                     }
                 }
-                std::cout << "new LAR: " << LAR << std::endl;
+                std::cout << "new LAR: " << LAR << "\n"
+                          << std::endl;
             }
         }
+        std::cout << "----------------------------------\n"
+                  << std::endl;
     }
+
+    close(globalSocketUDP);
 }
 
 int main(int argc, char **argv)
