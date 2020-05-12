@@ -83,23 +83,30 @@ void handleAckThread()
         // TODO: do we need make sure its within < LFS
         if (((seq_no + (MAX_SEQ_NO - LAR - 1)) % MAX_SEQ_NO) < SWS)
         {
-            int idx = seq_no % SWS;
-            std::cout << "idx in data structure - within SWS" << idx << " - seq _no: " << seq_no << "\n"
+            // int idx = seq_no % SWS;
+            std::cout << "inside window - seq _no: " << seq_no << "\n"
                       << std::endl;
             if (hasSent[seq_no])
             {
-                // if received ack for 4th index, and LAR is 2nd index
+                // if received ack for 4th seq, and LAR is 2nd seq no
                 // | 1 | 1 | 0 | 0 | 0 | 0 |
                 // then we assume 3rd is received too | 1 | 1 | 1 | 1 | 0 | 0 |
                 // TODO: make sure server code does that, but im pretty sure it does
-                int new_idx;
-                for (int i = 0; i < idx; i++)
+                int larToSeqNo = (seq_no + MAX_SEQ_NO - LAR - 1) % MAX_SEQ_NO;
+                int new_seq;
+                for (int i = 0; i < larToSeqNo; i++)
                 {
-                    new_idx = (i + LAR + 1) % MAX_SEQ_NO;
+
+                    // LAR = 15 & seq_no = 2
+                    // you want to ack 0,1, & 2
+                    // larToSeqNo would be 2 so we iterate twice
+                    // new_seq = 0 for i=0 => mark acked
+                    // new_seq = 1 for i=1 => mark acked
+                    new_seq = (i + LAR + 1) % MAX_SEQ_NO;
 
                     // set hasSent back to 0, moving the window..
-                    hasSent[new_idx] = 0;
-                    acked[new_idx] = 1;
+                    hasSent[seq_no] = 0;
+                    acked[seq_no] = 1;
                 }
 
                 // get estimated RTT for RTO (retransmission timeout)
@@ -131,9 +138,22 @@ void handleAckThread()
 
                 // packet acked is within window => greater than LAR
                 // acks are cumulative but check just in case
-                // for (idx = (seq_no + 1) % MAX_SEQ_NO; idx <   )
+                // check if any in front are acked e.g. LAR = 3, received ack 5,6,7,8,
+                // just received ack 4 => make LAR = 8
 
+                // if LAR = 15, seq_no received is 2, 0,1,2 are acked
+                // larToSeqNo = 2
+                // check 3,4,5,6,7 => SWS -1 - larToSeqNo = 5
                 LAR = seq_no;
+                int x;
+                for (x = 0; x < SWS - 1 - larToSeqNo; x++)
+                {
+                    new_seq = (x + LAR + 1) % MAX_SEQ_NO;
+                    if (acked[new_seq])
+                    {
+                        LAR = new_seq;
+                    }
+                }
             }
         }
 
@@ -223,10 +243,10 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
             int seq_no = (LAR + i + 1) % MAX_SEQ_NO; // TODO: DOUBLE CHECK if correct
 
             // copy to variable so we can unlock mutex quickly
-            int frameHasSent = hasSent[idx];
-            std::cout << "framehassent" << frameHasSent << " for idx: " << idx << " LAR: " << LAR << std::endl;
-            int frameHasAcked = acked[idx];
-            int frameSentTime = windowSendTime[idx].tv_sec;
+            int frameHasSent = hasSent[seq_no];
+            std::cout << "framehassent" << frameHasSent << " for seq: " << seq_no << " LAR: " << LAR << std::endl;
+            int frameHasAcked = acked[seq_no];
+            int frameSentTime = windowSendTime[seq_no].tv_sec;
             window_mutex.unlock();
             // if packet timed out, frame hasn't been sent, send it
             // else don't send
@@ -234,7 +254,7 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
             {
                 if (frameHasSent == 0)
                 {
-                    std::cout << "NEED TO SEND idx: " << idx << " with seq no: " << seq_no << std::endl;
+                    std::cout << "NEED TO SEND seq_no: " << seq_no << " with seq no: " << seq_no << std::endl;
                     std::cout << "bytesToSend " << bytesToTransfer - nextBufIdx << std::endl;
                     // TODO: double check if cpy size needs sizeof(char)
                     // checks whether its the end of the
@@ -279,18 +299,18 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
                               << std::endl;
                     // copy over data to windowBuf, which temporarily stores the
                     // the data for each window frame
-                    memset(windowBuf[idx], '\0', sizeof(windowBuf[idx]));
-                    memcpy(buffer + (nextBufIdx * sizeof(char)), windowBuf[idx], cpySize);
+                    memset(windowBuf[seq_no], '\0', sizeof(windowBuf[seq_no]));
+                    memcpy(buffer + (nextBufIdx * sizeof(char)), windowBuf[seq_no], cpySize);
 
                     // keep track of how much data is in the windowBuf
-                    windowBufSize[idx] = cpySize;
+                    windowBufSize[seq_no] = cpySize;
                 }
 
                 // *** SEND PACKET  ***//
                 char frame[FRAME_SIZE];
                 memset(&frame, '\0', sizeof(frame));
 
-                int sendSize = create_send_frame(frame, seq_no, windowBuf[idx], windowBufSize[idx], isEnd);
+                int sendSize = create_send_frame(frame, seq_no, windowBuf[seq_no], windowBufSize[seq_no], isEnd);
                 if (sendto(globalSocketUDP, frame, sendSize, 0, (struct sockaddr *)&recv_addr, sizeof(recv_addr)) < 0)
                 {
                     perror("sending: sendto failed");
@@ -299,13 +319,13 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
 
                 window_mutex.lock();
                 // mark frame sent and time sent
-                hasSent[idx] = 1;
-                std::cout << "sent idx " << idx << " - marking hasSent" << std::endl;
-                gettimeofday(&windowSendTime[idx], 0);
+                hasSent[seq_no] = 1;
+                std::cout << "sent seq_no " << seq_no << " - marking hasSent" << std::endl;
+                gettimeofday(&windowSendTime[seq_no], 0);
                 LFS = seq_no;
 
                 // mark ack sent 0, so we know to check for timeout
-                acked[idx] = 0;
+                acked[seq_no] = 0;
                 window_mutex.unlock();
 
                 // break out of loop if it is the last frame of entire program that is sent
