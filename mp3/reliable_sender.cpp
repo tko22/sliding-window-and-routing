@@ -42,14 +42,14 @@ int isEnd;                                 // has sent last frame
 int lastFrameSeqNo;
 bool sendDone = false;
 
-float RTO = 2.0; // retransmission timeout, set to 2s initially
+double RTO = 2.0; // retransmission timeout, set to 2s initially
 
 int LAR = -1; // last ack received
 int LFS = 0;  // last frame sent
 // ** ** ** ** ** ** ** **  **//
 
-float RTTs = -1.0; // smoothed RTTs
-float RTTd = -1.0; // RTT deviation
+double RTTs = -1.0; // smoothed RTTs
+double RTTd = -1.0; // RTT deviation
 
 void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *filename, unsigned long long int bytesToTransfer)
 {
@@ -141,8 +141,13 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
             if ((frameHasSent == 0 && isEnd != 1) || (frameHasSent == 1 && frameHasAcked == 0 && now.tv_sec - frameSentTime >= RTO))
             {
                 std::cout << "NEED TO SEND seq_no: " << seq_no << " with seq no: " << seq_no << std::endl;
-                std::cout << "hasn't been sent: " << (frameHasSent == 0 && isEnd != 1) << std::endl;
-                std::cout << "OR TIMEOUT:  " << (frameHasSent == 1 && frameHasAcked == 0 && now.tv_sec - frameSentTime >= RTO) << std::endl;
+                if (frameHasSent == 0 && isEnd != 1) {
+                    std::cout << "hasn't been sent: "  << std::endl;
+                }
+                else {
+                    std::cout << "    TIMEOUT   "  << std::endl;
+                }
+                std::cout << "RTO::: " << RTO << std::endl;
                 // frame hasnt been sent and not the end
                 if (frameHasSent == 0 && isEnd != 1)
                 {
@@ -235,7 +240,7 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
         // window_mutex.lock();
         // if (sendDone == true)
         // {
-        //     // unlock mutex is about to break out of loop, ending program...
+            // unlock mutex is about to break out of loop, ending program...
         //     // window_mutex.unlock();
         //     break;
         // }
@@ -303,23 +308,27 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
 
                 // get estimated RTT for RTO (retransmission timeout)
                 //https://www.geeksforgeeks.org/tcp-timers/
-                float t1 = windowSendTime[ack_seq_no].tv_sec + (windowSendTime[ack_seq_no].tv_usec / 1000000.0);
-                float t2 = receiveTime.tv_sec + (receiveTime.tv_usec / 1000000.0);
-                float RTTm = t2 - t1;
+                double t1 = windowSendTime[ack_seq_no].tv_sec + (windowSendTime[ack_seq_no].tv_usec / 1000000.0);
+                double t2 = receiveTime.tv_sec + (receiveTime.tv_usec / 1000000.0);
+                double RTTm = t2 - t1;
 
                 // get smoothed RTT and deviated RTTs
                 if (RTTs == -1)
                     RTTs = RTTm;
                 else
                     RTTs = (7 / 8) * RTTs + (1 / 8) * RTTm; // 7/8 is from 1-t, where t = 1/8
-
+                std::cout << "RTMs " << RTTs << std::endl;
                 if (RTTd == -1)
                     RTTd = RTTm / 2;
                 else
                     RTTd = (3 / 4) * RTTd + 1 / 4 * (RTTm - RTTs); // 3/4 is from 1-k, where k = 1/4
 
+                std::cout << "RTMd " << RTTd << std::endl;
+
                 // set RTO
                 RTO = RTTs + 4 * RTTd;
+                std::cout << "RTO::: " << RTO << ".... RTTm:  " << RTTm << std::endl;
+                
 
                 // mark hasSent
                 hasSent[ack_seq_no] = 0;
@@ -346,7 +355,7 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
                         LAR = new_seq;
                     }
                 }
-                std::cout << "new LAR: " << LAR << "\n"
+                std::cout << "new LAR: " << LAR
                           << std::endl;
             }
         }
