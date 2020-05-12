@@ -330,3 +330,25 @@ Group Status: Group of 2
 ===================== End =====================
 
 
+=============== Auto-grader Test ===============
+Code Pull Time: 2020-05-12 17:59:26.907344
+Test Commit ID: 0cbbfacd0f29551e8825b24cd3bfb94d6ef54090
+Group Status: Group of 2
+----------------- Test Results ----------------
+-0	Compile: Ok
+-0	Test Case 1: Sending a single byte succeeded!
+-10	Test Case 2: Sending 50KB failed: 237264 of 50000 bytes were written after 6s.
+-10	Test Case 3: Sending 65MB failed: your programs didn't terminate after sending.
+-10	Test Case 4: Program exceeded max allowed time.
+-10	Test Case 5: Program exceeded max allowed time.
+-10	Test Case 6: Quick convergence failed: failed to send 20MB when measuring bandwidth with using one instance (receiver wrote 0 bytes.)
+-10	Test Case 7: TCP friendliness failed: your program died or ended early. (Note: it's being given 999000999000 as the numBytes argument.)
+-10	Test Case 8: TCP friendliness (with 1% loss) failed: your program died or ended early. (Note: it's being given 999000999000 as the numBytes argument.)
+-10	Test Case 9: Competing with TCP failed: received file has 0 bytes. The file does not match.
+-10	Test Case 10: Sending 10KB (with 25% loss, 25% reorder) failed: 0 of 10000 bytes were written after 10s.
+-0	Late Penalty: Last commit happens before due.
+-------------------- Score --------------------
+10/100
+===================== End =====================
+
+
