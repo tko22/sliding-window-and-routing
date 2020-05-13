@@ -149,7 +149,7 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport, char *file
                 }
                 std::cout << "RTO::: " << RTO << std::endl;
                 // frame hasnt been sent and not the end
-                if (frameHasSent == 0 && isEnd != 1)
+                if (frameHasSent == 0)
                 {
                     std::cout << "frame hasn't been sent before:   nextBufIdx: " << nextBufIdx << std::endl;
                     // TODO: double check if cpy size needs sizeof(char)
