@@ -49,7 +49,7 @@ bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd)
         endSeqNum = seq_no;
     }
 
-    if (((seq_no + (MAX_SEQ_NO - NFE)) % MAX_SEQ_NO) > RWS)
+    if (((seq_no + (MAX_SEQ_NO - NFE)) % MAX_SEQ_NO) >= RWS)
     {
         std::cout << "outside window seq: " << seq_no << "::: Current NFE: " << NFE << std::endl;
         // ignore frame (seq_no)
@@ -84,10 +84,12 @@ bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd)
         idx = (i + NFE) % RWS;
 
         // terminate loop if first missing
-        if (!present[idx])
+        if (present[idx] == 0) {
+            std::cout << "idx: " << idx << "is not present" << std::endl;
             break;
+        }
 
-        std::cout << "writing to file -- i + NFE: " << NFE + i << std::endl;
+        std::cout << "writing to file -- i + NFE: " << (NFE + i)%MAX_SEQ_NO << std::endl;
         std::cout << "datasize: " << buf_data_size[idx] << std::endl;
         // pass to the app (buf[idx]) since it exists
         writeToFile(fd, buf[idx], buf_data_size[idx]);
