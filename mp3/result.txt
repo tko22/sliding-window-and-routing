@@ -352,3 +352,28 @@ Group Status: Group of 2
 ===================== End =====================
 
 
+=============== Auto-grader Test ===============
+Code Pull Time: 2020-05-12 22:00:09.759130
+Test Commit ID: c874c2ef337393b54e1878870aca198149e02b80
+Group Status: Group of 2
+----------------- Test Results ----------------
+-100	Compile: Failed.
+Compilation failed with:
+reliable_sender.cpp: In function ‘void reliablyTransfer(char*, short unsigned int, char*, long long unsigned int)’:
+reliable_sender.cpp:326:17: error: ‘RTTm’ was not declared in this scope
+                 RTTm = timeDiff(windowSendTime[ack_seq_no], receiveTime);
+                 ^~~~
+reliable_sender.cpp:326:17: note: suggested alternative: ‘RTTd’
+                 RTTm = timeDiff(windowSendTime[ack_seq_no], receiveTime);
+                 ^~~~
+                 RTTd
+Makefile:12: recipe for target 'reliable_sender' failed
+make: *** [reliable_sender] Error 1
+ 
+
+-0	Late Penalty: Last commit happens before due.
+-------------------- Score --------------------
+0/100
+===================== End =====================
+
+
