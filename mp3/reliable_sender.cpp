@@ -323,7 +323,8 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport,
 
                 // get estimated RTT for RTO (retransmission timeout)
                 // https://www.geeksforgeeks.org/tcp-timers/
-                double RTTm = timeDiff(windowSendTime[ack_seq_no], receiveTime);
+                long long RTTm =
+                    timeDiff(windowSendTime[ack_seq_no], receiveTime);
 
                 // get smoothed RTT and deviated RTTs
                 if (RTTs == -1) {
