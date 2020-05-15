@@ -18,11 +18,12 @@
 
 #include "utils.cpp"
 
-#define SWS 50          // sender
-#define MAX_SEQ_NO 100  // max sequence number (15) + 1
+#define SWS 170          // sender (RTT=20ms*Bandwidth=100Mbps)
+#define MAX_SEQ_NO 350  // max sequence number (15) + 1
 
 #define FRAME_SIZE 1472  // max framesize
 #define MAX_DATA_SIZE FRAME_SIZE - 9
+
 #define ACK_SIZE 5  // end (1 byte) + seq no (4 bytes)
 #define SEC_2_USEC 1000000
 
@@ -180,9 +181,7 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport,
 
                         // window_mutex.unlock();
 
-                        std::cout << "LAST PACKET TO SEND.... lastFrameSeqNo "
-                                  << lastFrameSeqNo
-                                  << " with cpSize: " << cpySize << std::endl;
+                        
                         // break out of loop if there isn't any more to be
                         // copied so we won't send a packet with 0 byte data
                         // this will occur when bytesToTransfer / MAX_DATA_SIZE
@@ -199,6 +198,11 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport,
 
                             break;
                         }
+
+                        std::cout << "LAST PACKET TO SEND.... lastFrameSeqNo "
+                                  << lastFrameSeqNo
+                                  << " Sequence Number: " << seq_no 
+                                  << " with cpSize: " << cpySize << std::endl;
                     } else {
                         // normal copy size
                         cpySize = MAX_DATA_SIZE * sizeof(char);

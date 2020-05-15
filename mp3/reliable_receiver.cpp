@@ -14,8 +14,8 @@
 #include "utils.cpp"
 
 //TODO: Get better values
-#define RWS 50           //
-#define MAX_SEQ_NO 100   // max sequence number (15) + 1
+#define RWS 170           //
+#define MAX_SEQ_NO 350   // max sequence number (15) + 1
 #define FRAME_SIZE 1472 // MTU in network, constant for simplicity
 #define ACK_SIZE 4      // end (1 byte) + seq no (4 bytes)
 
