@@ -18,8 +18,8 @@
 
 #include "utils.cpp"
 
-#define SWS 8          // sender
-#define MAX_SEQ_NO 16  // max sequence number (15) + 1
+#define SWS 50          // sender
+#define MAX_SEQ_NO 100  // max sequence number (15) + 1
 
 #define FRAME_SIZE 1472  // max framesize
 #define MAX_DATA_SIZE FRAME_SIZE - 9
