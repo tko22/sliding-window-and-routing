@@ -247,7 +247,7 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport,
                 // mark frame sent and time sent
                 hasSent[seq_no] = 1;
                 std::cout << "SENT seq_no " << seq_no << " - marking hasSent \n"
-                          << std::endl;
+                          << "END: " << isEnd << std::endl;
                 gettimeofday(&windowSendTime[seq_no], 0);
                 // LFS = seq_no; TODO: get most recent seq_no (seq_no can be a
                 // retransmitted one)
@@ -259,6 +259,7 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport,
                 // break out of loop if it is the last frame of entire program
                 // that is sent
                 if (isEnd == 1) {
+                    isEnd = 0;
                     break;
                 }
             }
