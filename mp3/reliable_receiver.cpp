@@ -28,13 +28,11 @@ int endSeqNum = -1;
 struct sockaddr_in recv_addr, sender_addr;
 int globalSocketUDP;
 
-void writeToFile(FILE *fd, char *buf, int size)
-{
+void writeToFile(FILE *fd, char *buf, int size) {
     fwrite(buf, sizeof(char), size, fd);
 }
 
-bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd)
-{
+bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd) {
     std::cout << "\n"
               << "receive frame: seq_no: " << seq_no << " with NFE: " << NFE << std::endl;
     int idx;
@@ -44,13 +42,11 @@ bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd)
     // set end sequence number
     // receiving last frame doesn't mean you should end program
     // need to account for lost previous frames
-    if (end == 1)
-    {
+    if (end == 1) {
         endSeqNum = seq_no;
     }
 
-    if (((seq_no + (MAX_SEQ_NO - NFE)) % MAX_SEQ_NO) >= RWS)
-    {
+    if (((seq_no + (MAX_SEQ_NO - NFE)) % MAX_SEQ_NO) >= RWS) {
         std::cout << "outside window seq: " << seq_no << "::: Current NFE: " << NFE << std::endl;
         // ignore frame (seq_no)
         // send ack though since it may be because an ack was lost and sender didnt know you received it
@@ -64,8 +60,7 @@ bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd)
     std::cout << "idx:" << idx << std::endl;
     // check if we already received it
     // if so mark received and copy to buffer
-    if (!present[idx])
-    {
+    if (!present[idx]) {
         std::cout << "marking present: idx:" << idx << std::endl;
         present[idx] = 1;                  // mark received
         memcpy(buf[idx], data, data_size); // copy data over to buffer
@@ -78,8 +73,7 @@ bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd)
 
     // figure out what acknowledgement to send
     int i;
-    for (i = 0; i < RWS; i++)
-    {
+    for (i = 0; i < RWS; i++) {
         // get the actual index from seq no for data structure
         idx = (i + NFE) % RWS;
 
@@ -114,8 +108,7 @@ bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd)
 
     // if the last frame written (ack_seq, predecessor of NFE) has the same seq num
     // as end seq num, we know we can close the program
-    if (endSeqNum >= 0 && ack_seq == endSeqNum)
-    {
+    if (endSeqNum >= 0 && ack_seq == endSeqNum) {
         reachedEnd = true;
     }
 
@@ -132,15 +125,13 @@ void reliablyReceive(unsigned short int myUDPport, char *destinationFile)
     recv_addr.sin_family = AF_INET;
 
     // create UDP socket
-    if ((globalSocketUDP = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
-    {
+    if ((globalSocketUDP = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         perror("socket");
         exit(1);
     }
 
     // bind receiver address to socket descriptor
-    if (::bind(globalSocketUDP, (struct sockaddr *)&recv_addr, sizeof(struct sockaddr_in)) < 0)
-    {
+    if (::bind(globalSocketUDP, (struct sockaddr *)&recv_addr, sizeof(struct sockaddr_in)) < 0) {
         perror("bind");
         close(globalSocketUDP);
         exit(1);
@@ -150,8 +141,7 @@ void reliablyReceive(unsigned short int myUDPport, char *destinationFile)
     fd = fopen(destinationFile, "w");
 
     int end_seq_no;
-    while (1)
-    {
+    while (1) {
         char fromAddrStr[100];
         socklen_t senderAddrLen;
         char recvBuf[FRAME_SIZE];
@@ -161,8 +151,7 @@ void reliablyReceive(unsigned short int myUDPport, char *destinationFile)
 
         // recv frame
         if ((bytesRecvd = recvfrom(globalSocketUDP, recvBuf, FRAME_SIZE, 0,
-                                   (struct sockaddr *)&sender_addr, &senderAddrLen)) == -1)
-        {
+                                   (struct sockaddr *)&sender_addr, &senderAddrLen)) == -1) {
             perror("connectivity listener: recvfrom failed");
             exit(1);
         }
@@ -181,8 +170,7 @@ void reliablyReceive(unsigned short int myUDPport, char *destinationFile)
 
         // end of transport, when is_end == true
         // break out of loop, closing program
-        if (is_end == true)
-        {
+        if (is_end == true) {
             end_seq_no = ((NFE + MAX_SEQ_NO - 1) % MAX_SEQ_NO);
             std::cout << "\nIT IS THE END... end_seq_no: " << end_seq_no << std::endl;
             break;
@@ -203,12 +191,10 @@ void reliablyReceive(unsigned short int myUDPport, char *destinationFile)
     close(globalSocketUDP);
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     unsigned short int udpPort;
 
-    if (argc != 3)
-    {
+    if (argc != 3) {
         fprintf(stderr, "usage: %s UDP_port filename_to_write\n\n", argv[0]);
         exit(1);
     }

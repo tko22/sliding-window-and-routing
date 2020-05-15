@@ -35,7 +35,7 @@ std::mutex window_mutex;
 char windowBuf[MAX_SEQ_NO][MAX_DATA_SIZE];
 int windowBufSize[MAX_SEQ_NO];
 
-// ** ALL USED WITHIN MUTEX **//
+//** ALL USED WITHIN MUTEX **//
 int hasSent[MAX_SEQ_NO];                    // frame in window has been sent
 int acked[MAX_SEQ_NO];                      // frame ack received
 struct timeval windowSendTime[MAX_SEQ_NO];  // tracking the send times of each
@@ -98,16 +98,17 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport,
 
     // read file to buffer, only send amount told to send
     // than file size
-    char buffer[bytesToTransfer];  //  number of bytes from the specified file
+    // char buffer[bytesToTransfer];  //  number of bytes from the specified file
                                    //  to be sent to the receiver
-    size_t newLen = fread(buffer, sizeof(char), bytesToTransfer, f);
-    fclose(f);
+    // size_t newLen = fread(buffer, sizeof(char), bytesToTransfer, f);
+    // fclose(f);
 
     // sending data structures
-    char data[MAX_DATA_SIZE];
-    int dataSize;
+    // char data[MAX_DATA_SIZE];
+    // int dataSize;
 
-    int nextBufIdx = 0;
+    // int nextBufIdx = 0;
+    int newLen = 0;
 
     // ** receive usage ** //
     char ack[ACK_SIZE];
@@ -115,6 +116,8 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport,
     int bytesRecvd;
     int ack_seq_no;
     // ** ** ** ** ** //
+
+    int cpySize;
 
     // send data - sliding window algorithm begins
 
@@ -162,19 +165,18 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport,
                 // frame hasnt been sent and not the end
                 if (frameHasSent == 0) {
                     std::cout << "frame hasn't been sent before:   nextBufIdx: "
-                              << nextBufIdx << std::endl;
+                              << ftell(f) << std::endl;
                     // TODO: double check if cpy size needs sizeof(char)
-                    // checks whether its the end of the
-                    int cpySize;
-                    int nextBufIncrement;
-                    if (bytesToTransfer - nextBufIdx < MAX_DATA_SIZE) {
+                    // checks whether its the end of the file
+                    unsigned long long int bytesRemaining = bytesToTransfer - ftell(f);
+                    if (bytesRemaining < MAX_DATA_SIZE) {
                         // sending last frame, or last frame already sent
-                        cpySize = (bytesToTransfer - nextBufIdx) * sizeof(char);
+                        cpySize = bytesRemaining * sizeof(char);
 
                         // window_mutex.lock();
                         isEnd = 1;
                         lastFrameSeqNo = seq_no;
-                        nextBufIncrement = (bytesToTransfer - nextBufIdx);
+                        // nextBufIncrement = (bytesToTransfer - nextBufIdx);
 
                         // window_mutex.unlock();
 
@@ -202,20 +204,25 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport,
                         cpySize = MAX_DATA_SIZE * sizeof(char);
                         // shift nextBufIdx by MAX_DATA_SIZE (since
                         // MAX_DATA_SIZE is in bytes/sizeof(char))
-                        nextBufIncrement = MAX_DATA_SIZE;
+                        // nextBufIncrement = MAX_DATA_SIZE;
                     }
 
-                    std::cout << "cpySize: " << cpySize << std::endl;
+                    // std::cout << "cpySize: " << cpySize << std::endl;
 
                     // copy over data to windowBuf, which temporarily stores the
                     // the data for each window frame
                     memset(windowBuf[seq_no], '\0', sizeof(windowBuf[seq_no]));
-                    memcpy(windowBuf[seq_no], buffer + nextBufIdx, cpySize);
+                    newLen = fread(windowBuf[seq_no], sizeof(char), cpySize, f);
+                    // memcpy(windowBuf[seq_no], buffer + nextBufIdx, cpySize);
                     // keep track of how much data is in the windowBuf
-                    windowBufSize[seq_no] = cpySize;
+                    windowBufSize[seq_no] = newLen;
+
+                    if (newLen < cpySize) {
+                        std::cout << "Full frame not sent: Expected = " << cpySize << " Sent = " << newLen << std::endl;
+                    }
 
                     // update nextBufIdx
-                    nextBufIdx += nextBufIncrement;
+                    // nextBufIdx += nextBufIncrement;
                 }
 
                 // *** SEND PACKET  ***//
@@ -378,6 +385,8 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport,
         }
         std::cout << "----------------------------------\n" << std::endl;
     }
+
+    fclose(f);
 
     close(globalSocketUDP);
 }
