@@ -18,7 +18,7 @@
 
 #include "utils.cpp"
 
-#define SWS 170          // sender (RTT=20ms*Bandwidth=100Mbps)
+#define SWS 50          // sender (RTT=20ms*Bandwidth=100Mbps)
 #define MAX_SEQ_NO 350  // max sequence number (15) + 1
 
 #define FRAME_SIZE 1472  // max framesize
@@ -170,7 +170,7 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport,
                     // TODO: double check if cpy size needs sizeof(char)
                     // checks whether its the end of the file
                     unsigned long long int bytesRemaining = bytesToTransfer - ftell(f);
-                    if (bytesRemaining < MAX_DATA_SIZE) {
+                    if (bytesRemaining <= MAX_DATA_SIZE) {
                         // sending last frame, or last frame already sent
                         cpySize = bytesRemaining * sizeof(char);
 
@@ -188,16 +188,16 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport,
                         // is an integer means we are able to cut
                         // bytesToTransfer into a perfect amount of fully filled
                         // packets
-                        if (cpySize == 0) {
-                            // window_mutex.lock();
-                            isEnd = 1;
-                            // seq no was the last seq no before this seq_no
-                            lastFrameSeqNo =
-                                (seq_no - 1 + MAX_SEQ_NO) % MAX_SEQ_NO;
-                            // window_mutex.unlock();
+                        // if (cpySize == 0) {
+                        //     // window_mutex.lock();
+                        //     // isEnd = 1;
+                        //     // seq no was the last seq no before this seq_no
+                        //     lastFrameSeqNo =
+                        //         (seq_no - 1 + MAX_SEQ_NO) % MAX_SEQ_NO;
+                        //     // window_mutex.unlock();
 
-                            break;
-                        }
+                        //     break;
+                        // }
 
                         std::cout << "LAST PACKET TO SEND.... lastFrameSeqNo "
                                   << lastFrameSeqNo
