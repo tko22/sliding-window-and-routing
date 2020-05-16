@@ -33,8 +33,8 @@ void writeToFile(FILE *fd, char *buf, int size) {
 }
 
 bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd) {
-    std::cout << "\n"
-              << "receive frame: seq_no: " << seq_no << " with NFE: " << NFE << std::endl;
+    // std::cout << "\n"
+    //           << "receive frame: seq_no: " << seq_no << " with NFE: " << NFE << std::endl;
     int idx;
     char ack_frame[ACK_SIZE];
     bool reachedEnd = false;
@@ -47,7 +47,7 @@ bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd) {
     }
 
     if (((seq_no + (MAX_SEQ_NO - NFE)) % MAX_SEQ_NO) >= RWS) {
-        std::cout << "outside window seq: " << seq_no << "::: Current NFE: " << NFE << std::endl;
+        // std::cout << "outside window seq: " << seq_no << "::: Current NFE: " << NFE << std::endl;
         // ignore frame (seq_no)
         // send ack though since it may be because an ack was lost and sender didnt know you received it
         create_ack_frame(ack_frame, seq_no);
@@ -83,8 +83,8 @@ bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd) {
             break;
         }
 
-        std::cout << "writing to file -- i + NFE: " << (NFE + i)%MAX_SEQ_NO << std::endl;
-        std::cout << "datasize: " << buf_data_size[idx] << std::endl;
+        // std::cout << "writing to file -- i + NFE: " << (NFE + i)%MAX_SEQ_NO << std::endl;
+        // std::cout << "datasize: " << buf_data_size[idx] << std::endl;
         // pass to the app (buf[idx]) since it exists
         writeToFile(fd, buf[idx], buf_data_size[idx]);
         present[idx] = 0;       // mark buffer empty
@@ -101,7 +101,7 @@ bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd) {
     // if NFE=0, then it goes to 15...
     int ack_seq = ((NFE + MAX_SEQ_NO - 1) % MAX_SEQ_NO);
     // std::cout << "SENDING ack:" << ack_seq << std::endl;
-    std::cout << "new NFE: " << NFE << std::endl;
+    // std::cout << "new NFE: " << NFE << std::endl;
 
     create_ack_frame(ack_frame, ack_seq);
     sendto(globalSocketUDP, ack_frame, sizeof(ack_frame), 0, (const struct sockaddr *)&sender_addr, sizeof(sender_addr));
