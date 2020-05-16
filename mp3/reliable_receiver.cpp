@@ -15,7 +15,7 @@
 
 //TODO: Get better values
 #define RWS 170           //
-#define MAX_SEQ_NO 350   // max sequence number (15) + 1
+#define MAX_SEQ_NO 5000   // max sequence number (15) + 1
 #define FRAME_SIZE 1472 // MTU in network, constant for simplicity
 #define ACK_SIZE 4      // seq no (4 bytes)
 

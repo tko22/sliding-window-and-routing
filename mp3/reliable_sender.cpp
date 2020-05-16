@@ -20,7 +20,7 @@
 #include "utils.cpp"
 
 #define SWS 170          // sender (RTT=20ms*Bandwidth=100Mbps)
-#define MAX_SEQ_NO 350  // max sequence number (15) + 1
+#define MAX_SEQ_NO 5000  // max sequence number (15) + 1
 
 #define FRAME_SIZE 1472  // max framesize
 #define MAX_DATA_SIZE FRAME_SIZE - 9
