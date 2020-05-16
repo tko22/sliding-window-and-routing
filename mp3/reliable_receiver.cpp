@@ -17,7 +17,7 @@
 #define RWS 170           //
 #define MAX_SEQ_NO 350   // max sequence number (15) + 1
 #define FRAME_SIZE 1472 // MTU in network, constant for simplicity
-#define ACK_SIZE 4      // end (1 byte) + seq no (4 bytes)
+#define ACK_SIZE 4      // seq no (4 bytes)
 
 char buf[RWS][FRAME_SIZE]; // RWS frame buffers
 int buf_data_size[RWS];
@@ -57,11 +57,11 @@ bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd) {
 
     // calculate index into data structure (present + buf)
     idx = (seq_no % RWS);
-    std::cout << "idx:" << idx << std::endl;
+    // std::cout << "idx:" << idx << std::endl;
     // check if we already received it
     // if so mark received and copy to buffer
     if (!present[idx]) {
-        std::cout << "marking present: idx:" << idx << std::endl;
+        // std::cout << "marking present: idx:" << idx << std::endl;
         present[idx] = 1;                  // mark received
         memcpy(buf[idx], data, data_size); // copy data over to buffer
 
@@ -79,7 +79,7 @@ bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd) {
 
         // terminate loop if first missing
         if (present[idx] == 0) {
-            std::cout << "idx: " << idx << "is not present" << std::endl;
+            // std::cout << "idx: " << idx << "is not present" << std::endl;
             break;
         }
 
@@ -100,7 +100,7 @@ bool handleRecvFrame(char *data, int seq_no, int data_size, int end, FILE *fd) {
     // ((NFE + MAX_SEQ_NO - 1) % MAX_SEQ_NO)
     // if NFE=0, then it goes to 15...
     int ack_seq = ((NFE + MAX_SEQ_NO - 1) % MAX_SEQ_NO);
-    std::cout << "SENDING ack:" << ack_seq << std::endl;
+    // std::cout << "SENDING ack:" << ack_seq << std::endl;
     std::cout << "new NFE: " << NFE << std::endl;
 
     create_ack_frame(ack_frame, ack_seq);

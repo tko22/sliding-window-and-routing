@@ -24,7 +24,7 @@
 #define FRAME_SIZE 1472  // max framesize
 #define MAX_DATA_SIZE FRAME_SIZE - 9
 
-#define ACK_SIZE 5  // end (1 byte) + seq no (4 bytes)
+#define ACK_SIZE 4 // seq no (4 bytes)
 #define SEC_2_USEC 1000000
 
 struct sockaddr_in recv_addr, sender_addr;
@@ -155,18 +155,19 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport,
             if ((frameHasSent == 0 && isEnd != 1) ||
                 (frameHasSent == 1 && frameHasAcked == 0 &&
                  timeDiff(windowSendTime[seq_no], now) >= RTO)) {
-                std::cout << "NEED TO SEND seq_no: " << seq_no
-                          << " with seq no: " << seq_no << std::endl;
-                if (frameHasSent == 0 && isEnd != 1) {
-                    std::cout << "hasn't been sent: " << std::endl;
-                } else {
-                    std::cout << "    TIMEOUT   " << std::endl;
-                }
-                std::cout << "RTO::: " << RTO << std::endl;
+                // std::cout << "NEED TO SEND seq_no: " << seq_no
+                //         << " with seq no: " << seq_no << std::endl;
+                // if (frameHasSent == 0 && isEnd != 1) {
+                //     std::cout << "hasn't been sent: " << std::endl;
+                // } else {
+                //     std::cout << "    TIMEOUT   " << std::endl;
+                // }
+                // std::cout << "RTO::: " << RTO << std::endl;
+                
                 // frame hasnt been sent and not the end
                 if (frameHasSent == 0) {
-                    std::cout << "frame hasn't been sent before:   nextBufIdx: "
-                              << ftell(f) << std::endl;
+                    // std::cout << "frame hasn't been sent before:   nextBufIdx: "
+                    //           << ftell(f) << std::endl;
                     // TODO: double check if cpy size needs sizeof(char)
                     // checks whether its the end of the file
                     unsigned long long int bytesRemaining = bytesToTransfer - ftell(f);
@@ -246,8 +247,8 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport,
                 // window_mutex.lock();
                 // mark frame sent and time sent
                 hasSent[seq_no] = 1;
-                std::cout << "SENT seq_no " << seq_no << " - marking hasSent \n"
-                          << "END: " << isEnd << std::endl;
+                std::cout << "SENT seq_no " << seq_no << std::endl;
+                
                 gettimeofday(&windowSendTime[seq_no], 0);
                 // LFS = seq_no; TODO: get most recent seq_no (seq_no can be a
                 // retransmitted one)
@@ -293,8 +294,8 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport,
         gettimeofday(&receiveTime, 0);
 
         read_ack(ack, &ack_seq_no);
-        std::cout << "\n---------------------------------------------------"
-                  << std::endl;
+        // std::cout << "\n---------------------------------------------------"
+                //   << std::endl;
         std::cout << "RECEIVED ACK seq_no " << ack_seq_no << std::endl;
 
         // if inside window
@@ -302,10 +303,10 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport,
         // TODO: do we need make sure its within < LFS
         if (((ack_seq_no + (MAX_SEQ_NO - LAR - 1)) % MAX_SEQ_NO) < SWS) {
             // int idx = seq_no % SWS;
-            std::cout << "inside window - seq _no: " << ack_seq_no << std::endl;
+            // std::cout << "inside window - seq _no: " << ack_seq_no << std::endl;
             if (hasSent[ack_seq_no]) {
-                std::cout << "processing... we have sent this ack seq_no: "
-                          << ack_seq_no << std::endl;
+                // std::cout << "processing... we have sent this ack seq_no: "
+                //           << ack_seq_no << std::endl;
                 // break out of loop if end reached and last seq no is acked
                 if (lastFrameSeqNo == ack_seq_no && isEnd == 1) {
                     std::cout << "ENDING PROGRAM lastframeSeqNo acked: "
@@ -342,24 +343,18 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport,
                 if (RTTs == -1) {
                     RTTs = RTTm;
                 } else {
-                    RTTs = (7 / 8) * RTTs +
-                           (1 / 8) * RTTm;  // 7/8 is from 1-t, where t = 1/8
+                    // 7/8 is from 1-t, where t = 1/8
+                    RTTs = 7 * (RTTs / 8) +  RTTm / 8;  
                 }
-                std::cout << "RTMs " << RTTs << std::endl;
                 if (RTTd == -1) {
                     RTTd = RTTm / 2;
                 } else {
-                    RTTd = (3 / 4) * RTTd +
-                           1 / 4 *
-                               (RTTm - RTTs);  // 3/4 is from 1-k, where k = 1/4
+                    // 3/4 is from 1-k, where k = 1/4
+                    RTTd = 3 * (RTTd / 4) + (RTTm - RTTs) / 4;
                 }
-
-                std::cout << "RTMd " << RTTd << std::endl;
 
                 // set RTO
                 RTO = RTTs + 4 * RTTd;
-                std::cout << "RTO::: " << RTO << ".... RTTm:  " << RTTm
-                          << std::endl;
 
                 // mark hasSent
                 hasSent[ack_seq_no] = 0;
@@ -385,10 +380,14 @@ void reliablyTransfer(char *hostname, unsigned short int hostUDPport,
                         LAR = new_seq;
                     }
                 }
-                std::cout << "new LAR: " << LAR << std::endl;
+                // std::cout << "RTMs " << RTTs << std::endl;
+                // std::cout << "RTMd " << RTTd << std::endl;
+                // std::cout << "RTO::: " << RTO << ".... RTTm:  " << RTTm
+                //           << std::endl;
+                // std::cout << "new LAR: " << LAR << std::endl;
             }
         }
-        std::cout << "----------------------------------\n" << std::endl;
+        // std::cout << "----------------------------------\n" << std::endl;
     }
 
     fclose(f);
