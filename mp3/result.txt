@@ -443,3 +443,25 @@ Group Status: Group of 2
 ===================== End =====================
 
 
+=============== Auto-grader Test ===============
+Code Pull Time: 2020-05-16 22:19:09.759314
+Test Commit ID: a562330b15d8e18a04981a34cc23e9fa0334f38d
+Group Status: Group of 2
+----------------- Test Results ----------------
+-0	Compile: Ok
+-0	Test Case 1: Sending a single byte succeeded!
+-0	Test Case 2: Sending 50KB succeeded!
+-10	Test Case 3: Program exceeded max allowed time.
+-10	Test Case 4: Sending 1MB (with 5% loss) failed: 0 of 1000000 bytes were written.
+-10	Test Case 5: Program exceeded max allowed time.
+-0	Test Case 6: Quick convergence succeeded!
+-0	Test Case 7: TCP friendliness succeeded! (TCP got 38.7 Mbps.)
+-0	Test Case 8: TCP friendliness (with 1% loss) succeeded! (TCP got 40.7 Mbps.)
+-10	Test Case 9: Competing with TCP failed: 8028160 of 65000000 bytes were written in 40 seconds.
+-0	Test Case 10: Sending 10KB (with 25% loss, 25% reorder) succeeded!
+-0	Late Penalty: Last commit happens before due.
+-------------------- Score --------------------
+60/100
+===================== End =====================
+
+
